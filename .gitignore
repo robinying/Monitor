@@ -1,0 +1,45 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# 本机配置与签名材料（禁止入库）
+local.properties
+.idea/
+*.iml
+.kotlin/
+*.jks
+*.keystore
+keystore.properties
+
+# Android 构建产物与本地生成文件
+captures/
+.externalNativeBuild/
+.cxx/
+app/release/
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+*.hprof
+*.log
+
+# 项目文档（按需不纳入版本库）
+docs/
+
+# AI 辅助工具生成文件
+.claude/
+CLAUDE.md
+AGENTS.md
+.cursor/
+.cursorrules
+.aider*
+.codex/
+.gemini/
+.windsurf/
+.continue/
+.github/copilot-instructions.md
+
+# 系统文件
+.DS_Store
