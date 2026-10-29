@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.t2m.monitor.R
+import com.t2m.monitor.core.FeatureConfig
 import com.t2m.monitor.core.MonitorRuntime
 import com.t2m.monitor.data.prefs.MonitorPreferences
 import com.t2m.monitor.domain.MetricRecorder
@@ -62,6 +63,9 @@ class MonitorService : Service() {
     @Inject
     lateinit var preferences: MonitorPreferences
 
+    @Inject
+    lateinit var features: FeatureConfig
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var samplingPaused = false
@@ -69,17 +73,23 @@ class MonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        alertNotifier.ensureChannel()
+        if (features.alerts) {
+            alertNotifier.ensureChannel()
+        }
         startForeground(NOTIFICATION_ID, buildNotification())
         runtime.setServiceRunning(true)
         runtime.setSamplingPaused(false)
         engine.start()
         metricRecorder.start()
-        alertMonitor.start()
+        if (features.alerts) {
+            alertMonitor.start()
+        }
 
-        serviceScope.launch {
-            if (preferences.overlayEnabled.first()) {
-                overlayController.show()
+        if (features.overlay) {
+            serviceScope.launch {
+                if (preferences.overlayEnabled.first()) {
+                    overlayController.show()
+                }
             }
         }
         serviceScope.launch {
@@ -97,9 +107,9 @@ class MonitorService : Service() {
                 return START_NOT_STICKY
             }
 
-            ACTION_SHOW_OVERLAY -> overlayController.show()
-            ACTION_HIDE_OVERLAY -> overlayController.hide()
-            ACTION_TOGGLE_OVERLAY -> overlayController.toggle()
+            ACTION_SHOW_OVERLAY -> if (features.overlay) overlayController.show()
+            ACTION_HIDE_OVERLAY -> if (features.overlay) overlayController.hide()
+            ACTION_TOGGLE_OVERLAY -> if (features.overlay) overlayController.toggle()
             ACTION_TOGGLE_SAMPLING -> toggleSampling()
             else -> Unit
         }
@@ -162,7 +172,7 @@ class MonitorService : Service() {
     private fun buildNotification(): Notification {
         val overlayVisible = runtime.overlayVisible.value
         val paused = runtime.samplingPaused.value
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_monitor)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(
@@ -175,13 +185,16 @@ class MonitorService : Service() {
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(openAppPendingIntent())
-            .addAction(
+        if (features.overlay) {
+            builder.addAction(
                 0,
                 getString(
                     if (overlayVisible) R.string.action_hide_overlay else R.string.action_show_overlay,
                 ),
                 servicePendingIntent(ACTION_TOGGLE_OVERLAY),
             )
+        }
+        builder
             .addAction(
                 0,
                 getString(
@@ -194,7 +207,7 @@ class MonitorService : Service() {
                 getString(R.string.action_stop_service),
                 servicePendingIntent(ACTION_STOP),
             )
-            .build()
+        return builder.build()
     }
 
     private fun openAppPendingIntent(): PendingIntent = PendingIntent.getActivity(

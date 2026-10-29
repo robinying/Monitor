@@ -12,7 +12,7 @@ interface MonitorLogger {
     fun warn(message: String, throwable: Throwable? = null)
 }
 
-/** 生产实现：统一打 tag，release 版本由 R8 移除调试级日志。 */
+/** 生产实现：统一 tag；warn 级日志在 release 中保留以便排查。 */
 class AndroidMonitorLogger : MonitorLogger {
 
     override fun warn(message: String, throwable: Throwable?) {

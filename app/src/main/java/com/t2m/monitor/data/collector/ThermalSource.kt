@@ -1,5 +1,6 @@
 package com.t2m.monitor.data.collector
 
+import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.ThermalZone
 import java.io.File
 import javax.inject.Inject
@@ -12,18 +13,32 @@ interface ThermalSource {
 }
 
 /** 生产实现：读取 `/sys/class/thermal/thermal_zone*`。 */
-class AndroidThermalSource @Inject constructor() : ThermalSource {
+class AndroidThermalSource @Inject constructor(
+    private val logger: MonitorLogger,
+) : ThermalSource {
 
-    override fun readZones(): List<ThermalZone>? = runCatching {
+    @Volatile
+    private var readFailureLogged = false
+
+    override fun readZones(): List<ThermalZone>? = try {
         val thermalDirectory = File(THERMAL_DIRECTORY)
         if (!thermalDirectory.isDirectory) {
-            return@runCatching emptyList()
+            emptyList()
+        } else {
+            val zones = thermalDirectory.listFiles { file -> file.name.startsWith(ZONE_PREFIX) }
+                .orEmpty()
+                .sortedBy { file -> file.name }
+                .mapNotNull { zoneDirectory -> readZone(zoneDirectory) }
+            readFailureLogged = false
+            zones
         }
-        thermalDirectory.listFiles { file -> file.name.startsWith(ZONE_PREFIX) }
-            .orEmpty()
-            .sortedBy { file -> file.name }
-            .mapNotNull { zoneDirectory -> readZone(zoneDirectory) }
-    }.getOrNull()
+    } catch (error: Exception) {
+        if (!readFailureLogged) {
+            logger.warn("read thermal zones failed", error)
+            readFailureLogged = true
+        }
+        null
+    }
 
     private fun readZone(zoneDirectory: File): ThermalZone? {
         val name = runCatching { File(zoneDirectory, TYPE_FILE).readText().trim() }.getOrNull()

@@ -19,11 +19,13 @@ class MetricAggregator(
     private var windowStartedAtMillis = elapsedMillis()
 
     /** 清空缓存并以当前时刻作为新窗口起点。 */
+    @Synchronized
     fun reset() {
         buffers.clear()
         windowStartedAtMillis = elapsedMillis()
     }
 
+    @Synchronized
     fun add(snapshot: MonitorSnapshot) {
         snapshot.battery?.percent?.let { append(MetricKeys.BATTERY_LEVEL, it.toFloat()) }
         snapshot.battery?.temperatureC?.let { append(MetricKeys.BATTERY_TEMPERATURE, it.toFloat()) }
@@ -34,6 +36,7 @@ class MetricAggregator(
         snapshot.fps?.let { append(MetricKeys.FPS, it) }
     }
 
+    @Synchronized
     fun shouldFlush(): Boolean = elapsedMillis() - windowStartedAtMillis >= WINDOW_MILLIS
 
     /**
@@ -41,6 +44,7 @@ class MetricAggregator(
      *
      * @param timestampMillis 写入数据库的时间戳（窗口结束时刻）
      */
+    @Synchronized
     fun flush(timestampMillis: Long): List<MetricAggregate> {
         val aggregates = buffers.mapNotNull { (metric, values) ->
             if (values.isEmpty()) {

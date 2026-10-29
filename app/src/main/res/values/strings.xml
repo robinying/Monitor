@@ -92,7 +92,7 @@
     <string name="history_info">Samples %1$d · %2$s – %3$s</string>
     <string name="history_export">Export CSV</string>
     <string name="history_exporting">Exporting…</string>
-    <string name="history_export_hint">CSV is saved to Download/T2MMonitor and can be shared.</string>
+    <string name="history_export_hint">CSV is written to the device download directory or app storage and can be shared.</string>
     <string name="history_clear">Clear data</string>
     <string name="history_clear_confirm_title">Clear history?</string>
     <string name="history_clear_confirm_message">Deletes all stored monitoring data. This cannot be undone.</string>

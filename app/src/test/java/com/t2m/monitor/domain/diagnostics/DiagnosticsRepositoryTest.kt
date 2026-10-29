@@ -48,6 +48,18 @@ class DiagnosticsRepositoryTest {
     }
 
     @Test
+    fun `records skipped capability without counting as failure`() {
+        repository.record(CollectorResult(CollectorId.USAGE, value = null, skipped = true))
+
+        val diagnostic = repository.diagnostics.value.single()
+        assertEquals(1L, diagnostic.skippedCount)
+        assertEquals(0L, diagnostic.successCount)
+        assertEquals(0L, diagnostic.failureCount)
+        assertNull(diagnostic.lastError)
+        assertTrue(repository.recentErrors.value.isEmpty())
+    }
+
+    @Test
     fun `error buffer keeps newest entries and caps size`() {
         repeat(25) { index ->
             clock.now = 1_000L + index
@@ -64,7 +76,6 @@ class DiagnosticsRepositoryTest {
     @Test
     fun `reset clears all statistics`() {
         repository.record(CollectorResult(CollectorId.BATTERY, value = 88))
-        repository.recordError("export failed")
         repository.reset()
 
         assertTrue(repository.diagnostics.value.isEmpty())

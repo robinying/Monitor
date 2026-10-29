@@ -12,6 +12,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.t2m.monitor.core.MonitorLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +40,7 @@ data class PermissionStatus(
 @Singleton
 class PermissionChecker @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val logger: MonitorLogger,
 ) {
 
     fun readStatus(): PermissionStatus = PermissionStatus(
@@ -47,8 +49,6 @@ class PermissionChecker @Inject constructor(
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(),
         usageStatsGranted = hasUsageStatsPermission(),
     )
-
-    fun hasOverlayPermission(): Boolean = Settings.canDrawOverlays(context)
 
     fun hasNotificationPermission(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -130,7 +130,7 @@ class PermissionChecker @Inject constructor(
         true
     } catch (exception: Exception) {
         // 个别 ROM 缺少对应设置页，界面会提示用户手动前往系统设置。
-        android.util.Log.w("T2mMonitor", "open settings failed: ${intent.action}", exception)
+        logger.warn("open settings failed: ${intent.action}", exception)
         false
     }
 }

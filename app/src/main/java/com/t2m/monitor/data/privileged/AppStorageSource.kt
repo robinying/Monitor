@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Process
 import android.os.storage.StorageManager
 import android.app.usage.StorageStatsManager
+import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.AppStorageUsage
 import com.t2m.monitor.data.permission.PermissionChecker
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -26,6 +27,7 @@ interface AppStorageSource {
 class AndroidAppStorageSource @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val permissionChecker: PermissionChecker,
+    private val logger: MonitorLogger,
 ) : AppStorageSource {
 
     override fun isAvailable(): Boolean = permissionChecker.hasUsageStatsPermission()
@@ -39,7 +41,7 @@ class AndroidAppStorageSource @Inject constructor(
         val storageStatsManager = context.getSystemService(StorageStatsManager::class.java)
             ?: return null
         val now = System.currentTimeMillis()
-        val candidates = runCatching {
+        val candidates = try {
             usageStatsManager.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,
                 now - CANDIDATE_WINDOW_MILLIS,
@@ -48,7 +50,10 @@ class AndroidAppStorageSource @Inject constructor(
                 .sortedByDescending { stats -> stats.totalTimeInForeground }
                 .distinctBy { stats -> stats.packageName }
                 .take(MAX_CANDIDATES)
-        }.getOrNull() ?: return null
+        } catch (error: Exception) {
+            logger.warn("query usage stats for storage failed", error)
+            return null
+        }
 
         val userHandle = Process.myUserHandle()
         val apps = candidates.mapNotNull { usage ->

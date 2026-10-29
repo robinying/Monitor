@@ -46,12 +46,14 @@ interface Collector<T : Any> {
  * @param value 采集值，失败或不可用时为 null。
  * @param error 采集过程中抛出的异常，供引擎记录日志。
  * @param durationMillis 本次采集耗时（毫秒）。
+ * @param skipped 能力不可用（未授权/未安装）导致本轮跳过，不计为失败。
  */
 data class CollectorResult(
     val id: CollectorId,
     val value: Any?,
     val error: Throwable? = null,
     val durationMillis: Long = 0L,
+    val skipped: Boolean = false,
 )
 
 /** 采集器集合，供引擎统一调度。 */

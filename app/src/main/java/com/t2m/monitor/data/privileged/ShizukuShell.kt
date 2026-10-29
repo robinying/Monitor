@@ -1,54 +1,68 @@
 package com.t2m.monitor.data.privileged
 
-import android.os.ParcelFileDescriptor
 import com.t2m.monitor.core.MonitorLogger
+import com.t2m.monitor.di.ApplicationScope
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
-import moe.shizuku.server.IRemoteProcess
-import moe.shizuku.server.IShizukuService
-import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuBinderWrapper
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 通过 Shizuku 执行 shell 命令。
  *
  * 命令以参数数组传入（不经过 `sh -c`），避免字符串拼接带来的注入风险。
- * Shizuku 13.x 未公开 `newProcess`，这里通过 `IShizukuService` + `ShizukuBinderWrapper` 调用。
+ * 阻塞读取由看门狗在超时后 `destroy()` 远程进程，防止 `dumpsys` 卡死拖住采样线程。
  */
 @Singleton
 class ShizukuShell @Inject constructor(
-    private val controller: ShizukuController,
+    private val access: ShizukuAccess,
+    private val launcher: RemoteCommandLauncher,
     private val logger: MonitorLogger,
+    @param:ApplicationScope private val scope: CoroutineScope,
 ) {
 
-    fun isGranted(): Boolean = controller.isGranted()
+    fun isGranted(): Boolean = access.isGranted()
 
     /**
-     * @return 标准输出；未授权、退出码非 0 或执行异常时返回 null
+     * @return 标准输出；未授权、退出码非 0、超时或执行异常时返回 null
      */
     fun exec(vararg command: String): String? {
-        if (!controller.isGranted()) {
+        if (!access.isGranted()) {
             return null
         }
-        val service = openService() ?: return null
-        var process: IRemoteProcess? = null
-        val result = runCatching {
-            val remoteProcess = service.newProcess(arrayOf(*command), null, null)
-            process = remoteProcess
-            val outputStream = ParcelFileDescriptor.AutoCloseInputStream(remoteProcess.inputStream)
-            val output = outputStream.bufferedReader().use { reader -> reader.readText() }
-            val exitCode = remoteProcess.waitFor()
-            if (exitCode == 0) output else null
+        val process = launcher.launch(arrayOf(*command)) ?: return null
+        val finished = AtomicBoolean(false)
+        val timedOut = AtomicBoolean(false)
+        val watchdog = scope.launch(Dispatchers.IO) {
+            delay(TIMEOUT_MILLIS)
+            if (finished.compareAndSet(false, true)) {
+                timedOut.set(true)
+                logger.warn("shizuku command timed out: ${command.firstOrNull()}")
+                process.destroy()
+            }
         }
-        if (result.isFailure) {
-            logger.warn("shizuku command failed: ${command.joinToString(" ")}", result.exceptionOrNull())
+
+        return try {
+            val output = process.readStdout()
+            val exitCode = process.waitFor()
+            if (timedOut.get() || exitCode != 0) null else output
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            logger.warn("shizuku command failed: ${command.firstOrNull()}", error)
+            null
+        } finally {
+            finished.set(true)
+            watchdog.cancel()
+            process.destroy()
         }
-        runCatching { process?.destroy() }
-        return result.getOrNull()
     }
 
-    private fun openService(): IShizukuService? = runCatching {
-        val binder = Shizuku.getBinder() ?: return@runCatching null
-        IShizukuService.Stub.asInterface(ShizukuBinderWrapper(binder))
-    }.getOrNull()
+    private companion object {
+        const val TIMEOUT_MILLIS = 400L
+    }
 }

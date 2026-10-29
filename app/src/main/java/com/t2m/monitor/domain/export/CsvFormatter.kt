@@ -9,7 +9,7 @@ import java.util.Locale
 /**
  * CSV 行格式化。
  *
- * 固定五列指标、固定顺序，数值列不含逗号，无需转义。
+ * 固定列顺序（时间 + MetricKeys.ALL），数值列不含逗号，无需转义。
  */
 object CsvFormatter {
 

@@ -92,7 +92,7 @@
     <string name="history_info">Amostras %1$d · %2$s – %3$s</string>
     <string name="history_export">Exportar CSV</string>
     <string name="history_exporting">A exportar…</string>
-    <string name="history_export_hint">O CSV é guardado em Download/T2MMonitor e pode ser compartilhado.</string>
+    <string name="history_export_hint">O CSV é gravado na pasta de downloads ou no armazenamento do app e pode ser compartilhado.</string>
     <string name="history_clear">Limpar dados</string>
     <string name="history_clear_confirm_title">Limpar histórico?</string>
     <string name="history_clear_confirm_message">Apaga todos os dados armazenados. Não pode ser desfeito.</string>

@@ -1,6 +1,7 @@
 package com.t2m.monitor.data.collector
 
 import android.os.StatFs
+import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.StorageSnapshot
 import java.io.File
 import javax.inject.Inject
@@ -16,15 +17,27 @@ interface StorageSource {
  *
  * 不申请存储权限，`StatFs` 只读取容量信息。
  */
-class AndroidStorageSource @Inject constructor() : StorageSource {
+class AndroidStorageSource @Inject constructor(
+    private val logger: MonitorLogger,
+) : StorageSource {
 
-    override fun read(): StorageSnapshot? = runCatching {
+    @Volatile
+    private var readFailureLogged = false
+
+    override fun read(): StorageSnapshot? = try {
         val statFs = StatFs(DATA_DIRECTORY)
+        readFailureLogged = false
         StorageSnapshot(
             totalBytes = statFs.blockCountLong * statFs.blockSizeLong,
             availableBytes = statFs.availableBlocksLong * statFs.blockSizeLong,
         )
-    }.getOrNull()
+    } catch (error: Exception) {
+        if (!readFailureLogged) {
+            logger.warn("read storage stats failed", error)
+            readFailureLogged = true
+        }
+        null
+    }
 
     private companion object {
         val DATA_DIRECTORY: String = File("/data").absolutePath

@@ -5,6 +5,8 @@ import androidx.room.Entity
 
 /**
  * 小时级聚合，原始样本清理后仍保留 90 天。
+ *
+ * 预留给后续 >7 天历史范围；当前历史页最大范围为 7 天，不直接查询本表。
  */
 @Entity(
     tableName = "metric_hourly",

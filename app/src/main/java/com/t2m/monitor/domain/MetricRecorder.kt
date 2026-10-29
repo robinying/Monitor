@@ -9,6 +9,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 采样记录器：订阅引擎快照，按 10 秒窗口聚合后写入 Room。
@@ -28,6 +30,8 @@ class MetricRecorder @Inject constructor(
 
     private var recordJob: Job? = null
 
+    private val recordMutex = Mutex()
+
     fun start() {
         if (recordJob?.isActive == true) {
             return
@@ -35,9 +39,11 @@ class MetricRecorder @Inject constructor(
         aggregator.reset()
         recordJob = scope.launch {
             engine.snapshot.collect { snapshot ->
-                aggregator.add(snapshot)
-                if (aggregator.shouldFlush()) {
-                    flushWindow()
+                recordMutex.withLock {
+                    aggregator.add(snapshot)
+                    if (aggregator.shouldFlush()) {
+                        flushWindow()
+                    }
                 }
             }
         }
@@ -52,7 +58,9 @@ class MetricRecorder @Inject constructor(
     /** 立即把当前窗口写入数据库（暂停采样或服务停止时调用）。 */
     fun flushNow() {
         scope.launch {
-            flushWindow()
+            recordMutex.withLock {
+                flushWindow()
+            }
         }
     }
 

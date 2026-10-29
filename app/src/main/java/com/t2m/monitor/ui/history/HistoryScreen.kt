@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -463,7 +464,7 @@ private fun formatTimestamp(timestampMillis: Long?): String {
 private fun shareCsv(context: Context, exportFile: ExportFile) {
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = MIME_TYPE_CSV
-        putExtra(Intent.EXTRA_STREAM, exportFile.uri)
+        putExtra(Intent.EXTRA_STREAM, exportFile.uri.toUri())
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     val chooser = Intent.createChooser(sendIntent, context.getString(R.string.history_share_title))

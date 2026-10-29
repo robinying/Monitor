@@ -92,7 +92,7 @@
     <string name="history_info">Échantillons %1$d · %2$s – %3$s</string>
     <string name="history_export">Exporter CSV</string>
     <string name="history_exporting">Exportation…</string>
-    <string name="history_export_hint">Le CSV est enregistré dans Download/T2MMonitor et peut être partagé.</string>
+    <string name="history_export_hint">Le CSV est écrit dans le répertoire de téléchargements ou le stockage de l’application, puis peut être partagé.</string>
     <string name="history_clear">Effacer les données</string>
     <string name="history_clear_confirm_title">Effacer l’historique ?</string>
     <string name="history_clear_confirm_message">Supprime toutes les données de surveillance. Action irréversible.</string>

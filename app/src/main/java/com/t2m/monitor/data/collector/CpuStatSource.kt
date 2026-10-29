@@ -1,5 +1,6 @@
 package com.t2m.monitor.data.collector
 
+import com.t2m.monitor.core.MonitorLogger
 import java.io.File
 import javax.inject.Inject
 
@@ -17,13 +18,26 @@ interface CpuStatSource {
 }
 
 /** 生产实现：直接读取内核暴露的 proc/sys 文件。 */
-class AndroidCpuStatSource @Inject constructor() : CpuStatSource {
+class AndroidCpuStatSource @Inject constructor(
+    private val logger: MonitorLogger,
+) : CpuStatSource {
 
-    override fun readStatLines(): List<String>? = runCatching {
-        File(PROC_STAT_PATH).useLines { lines ->
-            lines.takeWhile { it.startsWith(CPU_LINE_PREFIX) }.toList()
+    @Volatile
+    private var statFailureLogged = false
+
+    override fun readStatLines(): List<String>? = try {
+        val lines = File(PROC_STAT_PATH).useLines { fileLines ->
+            fileLines.takeWhile { it.startsWith(CPU_LINE_PREFIX) }.toList()
         }
-    }.getOrNull()
+        statFailureLogged = false
+        lines
+    } catch (error: Exception) {
+        if (!statFailureLogged) {
+            logger.warn("read /proc/stat failed; CPU usage unavailable", error)
+            statFailureLogged = true
+        }
+        null
+    }
 
     override fun readFrequencyKHz(coreIndex: Int): Int? =
         readIntFromFile(coreFrequencyPath(coreIndex, CURRENT_FREQUENCY_FILE))

@@ -4,14 +4,17 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.OverlayMode
-import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -23,22 +26,37 @@ import kotlinx.coroutines.flow.map
 @Singleton
 class MonitorPreferences @Inject constructor(
     private val dataStore: DataStore<Preferences>,
+    private val logger: MonitorLogger,
 ) {
 
     /** 用户是否希望显示悬浮窗（服务启动时据此自动恢复）。 */
     val overlayEnabled: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            logger.warn("read overlay settings failed", error)
+            emit(emptyPreferences())
+        }
         .map { preferences -> preferences[KEY_OVERLAY_ENABLED] ?: false }
 
     /** 权限引导是否已读，用于首次启动自动跳转。 */
     val guideSeen: Flow<Boolean> = dataStore.data
+        .catch { error ->
+            logger.warn("read guide state failed", error)
+            emit(emptyPreferences())
+        }
         .map { preferences -> preferences[KEY_GUIDE_SEEN] ?: false }
 
     /** 一次性读取悬浮窗初始状态，供 attach 时使用。 */
     suspend fun readOverlaySettings(): OverlaySettings {
-        val preferences = dataStore.data.first()
+        val preferences = try {
+            dataStore.data.first()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            logger.warn("read overlay settings failed", error)
+            emptyPreferences()
+        }
         val storedMode = preferences[KEY_OVERLAY_MODE]
         return OverlaySettings(
-            enabled = preferences[KEY_OVERLAY_ENABLED] ?: false,
             mode = OverlayMode.entries.firstOrNull { mode -> mode.name == storedMode }
                 ?: OverlayMode.BUBBLE,
             x = preferences[KEY_OVERLAY_X] ?: OverlaySettings.POSITION_UNSET,
@@ -67,8 +85,11 @@ class MonitorPreferences @Inject constructor(
         try {
             dataStore.edit(block)
             true
-        } catch (ioError: IOException) {
-            // DataStore 写入失败不影响运行时功能，由调用方记录日志。
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            // DataStore 写入失败不影响运行时功能，这里记录后由调用方决定是否提示。
+            logger.warn("write monitor preferences failed", error)
             false
         }
 
@@ -88,7 +109,6 @@ class MonitorPreferences @Inject constructor(
  * @param y 上次窗口左上角 y
  */
 data class OverlaySettings(
-    val enabled: Boolean,
     val mode: OverlayMode,
     val x: Int,
     val y: Int,

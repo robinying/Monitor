@@ -21,6 +21,7 @@ data class CollectorDiagnostic(
     val collectorId: CollectorId,
     val successCount: Long = 0L,
     val failureCount: Long = 0L,
+    val skippedCount: Long = 0L,
     val consecutiveFailures: Int = 0,
     val lastDurationMillis: Long = 0L,
     val lastUpdatedAtMillis: Long = 0L,
@@ -73,6 +74,14 @@ class DiagnosticsRepository @Inject constructor(
     @Synchronized
     fun record(result: CollectorResult) {
         val previous = stats[result.id] ?: CollectorDiagnostic(collectorId = result.id)
+        if (result.skipped) {
+            stats[result.id] = previous.copy(
+                skippedCount = previous.skippedCount + 1,
+                lastUpdatedAtMillis = clock.currentTimeMillis(),
+            )
+            publish()
+            return
+        }
         val failed = result.error != null || result.value == null
         val updated = if (failed) {
             val message = result.error?.message ?: "collector returned no data"
@@ -94,13 +103,6 @@ class DiagnosticsRepository @Inject constructor(
             )
         }
         stats[result.id] = updated
-        publish()
-    }
-
-    /** 记录不来自采集器的错误（例如导出、数据库）。 */
-    @Synchronized
-    fun recordError(message: String) {
-        addError(collectorId = null, message = message)
         publish()
     }
 

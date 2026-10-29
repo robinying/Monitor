@@ -34,6 +34,7 @@ import com.t2m.monitor.ui.MainActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -90,7 +91,16 @@ class OverlayController @Inject constructor(
         }
         showRequested = true
         scope.launch(Dispatchers.Main.immediate) {
-            attach(preferences.readOverlaySettings())
+            val settings = try {
+                preferences.readOverlaySettings()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                logger.warn("read overlay settings failed", error)
+                showRequested = false
+                return@launch
+            }
+            attach(settings)
         }
     }
 

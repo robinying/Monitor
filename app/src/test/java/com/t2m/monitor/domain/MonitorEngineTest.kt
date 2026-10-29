@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -105,6 +106,50 @@ class MonitorEngineTest {
         engine.stop()
         engine.stop()
         assertFalse(engine.isRunning.value)
+    }
+
+    @Test
+    fun `clears retained value when collector becomes unavailable`() = runTest {
+        var available = true
+        val batteryCollector = object : Collector<BatterySnapshot> {
+            override val id: CollectorId = CollectorId.BATTERY
+            override val intervalMillis: Long = 1_000L
+            override fun isAvailable(): Boolean = available
+            override suspend fun collect(): BatterySnapshot = battery(percent = 66)
+        }
+        val engine = createEngine(collectors = listOf(batteryCollector), logger = RecordingLogger())
+
+        engine.start()
+        advanceTimeBy(1_100L)
+        runCurrent()
+        assertEquals(66, engine.snapshot.value.battery?.percent)
+
+        available = false
+        advanceTimeBy(1_100L)
+        runCurrent()
+        assertNull(engine.snapshot.value.battery)
+        engine.stop()
+    }
+
+    @Test
+    fun `can restart after stop without crashing`() = runTest {
+        val batteryCollector = object : Collector<BatterySnapshot> {
+            override val id: CollectorId = CollectorId.BATTERY
+            override val intervalMillis: Long = 1_000L
+            override suspend fun collect(): BatterySnapshot = battery(percent = 42)
+        }
+        val engine = createEngine(collectors = listOf(batteryCollector), logger = RecordingLogger())
+
+        engine.start()
+        advanceTimeBy(1_100L)
+        runCurrent()
+        engine.stop()
+
+        engine.start()
+        advanceTimeBy(1_100L)
+        runCurrent()
+        assertEquals(42, engine.snapshot.value.battery?.percent)
+        engine.stop()
     }
 
     private fun TestScope.createEngine(

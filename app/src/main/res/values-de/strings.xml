@@ -92,7 +92,7 @@
     <string name="history_info">Messwerte %1$d · %2$s – %3$s</string>
     <string name="history_export">CSV exportieren</string>
     <string name="history_exporting">Exportiere…</string>
-    <string name="history_export_hint">CSV wird unter Download/T2MMonitor gespeichert und kann geteilt werden.</string>
+    <string name="history_export_hint">CSV wird im Download-Verzeichnis oder im App-Speicher gespeichert und kann geteilt werden.</string>
     <string name="history_clear">Daten löschen</string>
     <string name="history_clear_confirm_title">Verlauf löschen?</string>
     <string name="history_clear_confirm_message">Löscht alle gespeicherten Überwachungsdaten. Nicht umkehrbar.</string>

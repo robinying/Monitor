@@ -63,7 +63,7 @@ fun AppRoot(
     }
 }
 
-/** 应用内页面，M3 仅有仪表盘、历史与权限引导三页。 */
+/** 应用内页面：权限引导、仪表盘、历史与诊断。 */
 private enum class AppScreen {
     GUIDE,
     DASHBOARD,

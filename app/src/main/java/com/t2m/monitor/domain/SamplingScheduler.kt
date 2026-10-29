@@ -39,6 +39,7 @@ class SamplingScheduler(
     ) {
         while (currentCoroutineContext().isActive) {
             val tickStartedAt = now()
+            val unavailableCollectors = collectors.filterNot { collector -> collector.isAvailable() }
             val dueCollectors = collectors.filter { collector ->
                 if (!collector.isAvailable()) {
                     return@filter false
@@ -46,11 +47,18 @@ class SamplingScheduler(
                 val lastRunAt = lastRunAtMillis[collector.id]
                 lastRunAt == null || tickStartedAt - lastRunAt >= collector.intervalMillis
             }
-            if (dueCollectors.isNotEmpty()) {
-                val results = withTimeoutOrNull(tickTimeoutMillis) { collectAll(dueCollectors) }
-                if (results != null) {
+            if (dueCollectors.isNotEmpty() || unavailableCollectors.isNotEmpty()) {
+                val collected = if (dueCollectors.isEmpty()) {
+                    emptyList()
+                } else {
+                    withTimeoutOrNull(tickTimeoutMillis) { collectAll(dueCollectors) }
+                }
+                if (collected != null) {
                     dueCollectors.forEach { collector -> lastRunAtMillis[collector.id] = tickStartedAt }
-                    onResults(results)
+                    val skipped = unavailableCollectors.map { collector ->
+                        CollectorResult(id = collector.id, value = null, skipped = true)
+                    }
+                    onResults(skipped + collected)
                 }
             }
             delay(tickIntervalMillis)

@@ -92,7 +92,7 @@
     <string name="history_info">样本数 %1$d · %2$s ~ %3$s</string>
     <string name="history_export">导出 CSV</string>
     <string name="history_exporting">导出中…</string>
-    <string name="history_export_hint">CSV 写入系统下载目录 Download/T2MMonitor，可直接分享或连接电脑拷贝。</string>
+    <string name="history_export_hint">CSV 写入本机下载目录或应用专属目录，可直接分享或拷贝。</string>
     <string name="history_clear">清空数据</string>
     <string name="history_clear_confirm_title">清空历史数据？</string>
     <string name="history_clear_confirm_message">将删除本机保存的全部监控数据，此操作不可撤销。</string>

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.t2m.monitor.core.AndroidMonitorLogger
+import com.t2m.monitor.core.FeatureConfig
 import com.t2m.monitor.core.MonitorClock
 import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.core.SystemMonitorClock
@@ -27,6 +28,7 @@ import com.t2m.monitor.data.collector.AppStorageCollector
 import com.t2m.monitor.data.collector.BatteryCollector
 import com.t2m.monitor.data.collector.BatterySource
 import com.t2m.monitor.data.collector.CollectorRegistry
+import com.t2m.monitor.data.collector.CollectorSelection
 import com.t2m.monitor.data.collector.CpuCollector
 import com.t2m.monitor.data.collector.CpuStatSource
 import com.t2m.monitor.data.collector.FpsCollector
@@ -35,9 +37,17 @@ import com.t2m.monitor.data.collector.MemorySource
 import com.t2m.monitor.data.collector.StorageCollector
 import com.t2m.monitor.data.collector.StorageSource
 import com.t2m.monitor.data.privileged.AndroidAppStorageSource
+import com.t2m.monitor.data.privileged.RemoteCommandLauncher
+import com.t2m.monitor.data.privileged.ShizukuAccess
+import com.t2m.monitor.data.privileged.ShizukuCommandLauncher
+import com.t2m.monitor.data.privileged.ShizukuController
 import com.t2m.monitor.data.privileged.AppStorageSource
 import com.t2m.monitor.data.privileged.ShizukuFpsSource
 import com.t2m.monitor.data.privileged.SystemFpsSource
+import com.t2m.monitor.domain.export.AndroidCsvHeaderProvider
+import com.t2m.monitor.domain.export.AndroidExportTargetFactory
+import com.t2m.monitor.domain.export.CsvHeaderProvider
+import com.t2m.monitor.domain.export.ExportTargetFactory
 import com.t2m.monitor.domain.SamplingScheduler
 import com.t2m.monitor.domain.alert.ThresholdEvaluator
 import dagger.Module
@@ -85,6 +95,10 @@ object MonitorModule {
 
     @Provides
     @Singleton
+    fun provideFeatureConfig(): FeatureConfig = FeatureConfig()
+
+    @Provides
+    @Singleton
     fun provideMonitorClock(): MonitorClock = SystemMonitorClock()
 
     @Provides
@@ -123,6 +137,14 @@ object MonitorModule {
 
     @Provides
     @Singleton
+    fun provideShizukuAccess(impl: ShizukuController): ShizukuAccess = impl
+
+    @Provides
+    @Singleton
+    fun provideRemoteCommandLauncher(impl: ShizukuCommandLauncher): RemoteCommandLauncher = impl
+
+    @Provides
+    @Singleton
     fun provideSystemFpsSource(impl: ShizukuFpsSource): SystemFpsSource = impl
 
     @Provides
@@ -140,18 +162,30 @@ object MonitorModule {
         usageCollector: UsageCollector,
         fpsCollector: FpsCollector,
         appStorageCollector: AppStorageCollector,
+        features: FeatureConfig,
     ): CollectorRegistry = CollectorRegistry(
-        collectors = listOf(
-            batteryCollector,
-            cpuCollector,
-            memoryCollector,
-            storageCollector,
-            thermalCollector,
-            usageCollector,
-            fpsCollector,
-            appStorageCollector,
+        collectors = CollectorSelection.select(
+            collectors = listOf(
+                batteryCollector,
+                cpuCollector,
+                memoryCollector,
+                storageCollector,
+                thermalCollector,
+                usageCollector,
+                fpsCollector,
+                appStorageCollector,
+            ),
+            features = features,
         ),
     )
+
+    @Provides
+    @Singleton
+    fun provideExportTargetFactory(impl: AndroidExportTargetFactory): ExportTargetFactory = impl
+
+    @Provides
+    @Singleton
+    fun provideCsvHeaderProvider(impl: AndroidCsvHeaderProvider): CsvHeaderProvider = impl
 
     @Provides
     @Singleton

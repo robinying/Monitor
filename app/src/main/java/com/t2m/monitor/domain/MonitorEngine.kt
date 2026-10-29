@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 采集中枢。
@@ -54,6 +56,9 @@ class MonitorEngine @Inject constructor(
 
     private var samplingJob: Job? = null
 
+    /** 串行化启动/停止：旧任务释放后新任务才进入采样循环，避免两轮采集并发。 */
+    private val runMutex = Mutex()
+
     /** 启动采样；重复调用幂等。 */
     fun start() {
         if (samplingJob?.isActive == true) {
@@ -61,24 +66,34 @@ class MonitorEngine @Inject constructor(
         }
         _isRunning.value = true
         samplingJob = scope.launch {
-            scheduler.run(
-                collectors = registry.collectors,
-                now = clock::elapsedRealtimeMillis,
-                onResults = { results -> applyResults(results) },
-            )
+            runMutex.withLock {
+                if (!_isRunning.value) {
+                    return@withLock
+                }
+                scheduler.run(
+                    collectors = registry.collectors,
+                    now = clock::elapsedRealtimeMillis,
+                    onResults = { results -> applyResults(results) },
+                )
+            }
         }
     }
 
     /** 停止采样；已产生的快照保留，便于界面继续展示最后一次数据。 */
     fun stop() {
+        _isRunning.value = false
         samplingJob?.cancel()
         samplingJob = null
-        _isRunning.value = false
     }
 
     private suspend fun applyResults(results: List<CollectorResult>) {
         for (result in results) {
             diagnostics.record(result)
+            if (result.skipped) {
+                // 能力被撤销（Shizuku/使用情况访问）时清空旧值，避免继续展示过期数据。
+                lastValues.remove(result.id)
+                continue
+            }
             val error = result.error
             if (error != null) {
                 logger.warn("collector ${result.id} failed", error)

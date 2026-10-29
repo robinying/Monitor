@@ -18,7 +18,7 @@ import rikka.shizuku.Shizuku
 @Singleton
 class ShizukuController @Inject constructor(
     private val logger: MonitorLogger,
-) {
+) : ShizukuAccess {
 
     private val _available = MutableStateFlow(false)
 
@@ -61,7 +61,7 @@ class ShizukuController @Inject constructor(
         }.getOrDefault(false)
     }
 
-    fun isGranted(): Boolean = _granted.value
+    override fun isGranted(): Boolean = _granted.value
 
     /** 发起授权请求；结果通过 [granted] 流回传。 */
     fun requestPermission() {

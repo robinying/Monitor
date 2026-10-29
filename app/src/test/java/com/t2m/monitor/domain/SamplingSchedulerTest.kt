@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -73,7 +74,7 @@ class SamplingSchedulerTest {
     }
 
     @Test
-    fun `skips unavailable collectors without reporting failures`() = runTest {
+    fun `reports unavailable collectors as skipped without running them`() = runTest {
         val unavailable = object : Collector<Int> {
             override val id: CollectorId = CollectorId.MEMORY
             override val intervalMillis: Long = 1_000L
@@ -81,20 +82,23 @@ class SamplingSchedulerTest {
             override suspend fun collect(): Int = error("unavailable collector must not run")
         }
         val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
-        var callbacks = 0
+        var latestResults: List<CollectorResult>? = null
 
         val job = launch {
             scheduler.run(
                 collectors = listOf(unavailable),
                 now = { testScheduler.currentTime },
-                onResults = { callbacks++ },
+                onResults = { results -> latestResults = results },
             )
         }
         advanceTimeBy(2_100L)
         runCurrent()
         job.cancel()
 
-        assertEquals(0, callbacks)
+        val results = latestResults ?: error("expected skipped result")
+        assertEquals(1, results.size)
+        assertEquals(CollectorId.MEMORY, results.single().id)
+        assertTrue(results.single().skipped)
     }
 
     @Test

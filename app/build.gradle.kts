@@ -87,6 +87,8 @@ android {
         // lint 分析测试源在 release 变体会触发 AGP/KSP 生成源缺失的内部错误；
         // 测试代码由编译与单测任务覆盖，这里关闭 lint 的测试源码分析。
         checkTestSources = false
+        // 测试源码由编译/单测/仪器测试覆盖；lint 分析 test/androidTest 会触发 AGP/KSP 内部错误。
+        ignoreTestSources = true
         // 依赖版本按 docs/plan.md §4.1 的约束锁定（compileSdk 36 上限），不做升级提示。
         disable += setOf(
             "GradleDependency",
@@ -138,6 +140,10 @@ dependencies {
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.sqlite.framework)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
