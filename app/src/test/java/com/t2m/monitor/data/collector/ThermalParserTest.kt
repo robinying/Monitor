@@ -1,6 +1,8 @@
 package com.t2m.monitor.data.collector
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -19,6 +21,16 @@ class ThermalParserTest {
     fun `normalizes celsius and tenths`() {
         assertEquals(45f, ThermalParser.normalize(45f)!!, 0.01f)
         assertEquals(45f, ThermalParser.normalize(450f)!!, 0.01f)
+    }
+
+    @Test
+    fun `excludes non temperature thermal zones`() {
+        assertTrue(ThermalParser.isTemperatureZone("cpu-1-3-1"))
+        assertTrue(ThermalParser.isTemperatureZone("battery"))
+        assertFalse(ThermalParser.isTemperatureZone("vbat"))
+        assertFalse(ThermalParser.isTemperatureZone("ibat"))
+        assertFalse(ThermalParser.isTemperatureZone("pmxr2230-bcl-lvl0"))
+        assertFalse(ThermalParser.isTemperatureZone("battery_current"))
     }
 
     @Test

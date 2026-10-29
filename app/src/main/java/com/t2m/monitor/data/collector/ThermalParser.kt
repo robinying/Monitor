@@ -11,6 +11,27 @@ object ThermalParser {
     private const val MIN_VALID_CELSIUS = 0.1f
     private const val MAX_VALID_CELSIUS = 150f
 
+    private val EXCLUDED_ZONE_TOKENS = listOf(
+        "vbat",
+        "ibat",
+        "current",
+        "voltage",
+        "bcl",
+        "fan",
+        "power",
+    )
+
+    /**
+     * 判断温区 type 是否为温度传感器。
+     *
+     * 部分平台把电压/电流/充电等级也注册成 thermal_zone（如 `vbat`、`ibat`、
+     * `pmxr2230-bcl-lvl0`），其 temp 字段并非摄氏度，需要排除，否则会出现 99℃ 之类的误报。
+     */
+    fun isTemperatureZone(zoneType: String): Boolean {
+        val normalized = zoneType.lowercase()
+        return EXCLUDED_ZONE_TOKENS.none { token -> normalized.contains(token) }
+    }
+
     fun normalize(rawValue: Float): Float? {
         if (rawValue <= 0f) {
             return null

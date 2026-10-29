@@ -43,6 +43,9 @@ class AndroidThermalSource @Inject constructor(
     private fun readZone(zoneDirectory: File): ThermalZone? {
         val name = runCatching { File(zoneDirectory, TYPE_FILE).readText().trim() }.getOrNull()
             ?: return null
+        if (!ThermalParser.isTemperatureZone(name)) {
+            return null
+        }
         val rawTemperature = runCatching {
             File(zoneDirectory, TEMPERATURE_FILE).readText().trim().toFloat()
         }.getOrNull() ?: return null
