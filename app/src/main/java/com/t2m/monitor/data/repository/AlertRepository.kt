@@ -39,9 +39,6 @@ class AlertRepository @Inject constructor(
             )
         }
 
-    suspend fun clearAll() {
-        alertDao.clear()
-    }
 
     private companion object {
         const val RECENT_LIMIT = 20

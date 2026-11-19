@@ -19,6 +19,8 @@ class AppStorageCollector @Inject constructor(
 
     override val intervalMillis: Long = DEFAULT_INTERVAL_MILLIS
 
+    override val timeoutMillis: Long = COLLECT_TIMEOUT_MILLIS
+
     override fun isAvailable(): Boolean = source.isAvailable()
 
     override suspend fun collect(): List<AppStorageUsage>? = withContext(Dispatchers.IO) {
@@ -26,6 +28,7 @@ class AppStorageCollector @Inject constructor(
     }
 
     private companion object {
+        const val COLLECT_TIMEOUT_MILLIS = 3_000L
         const val DEFAULT_INTERVAL_MILLIS = 60_000L
         const val TOP_APP_LIMIT = 5
     }

@@ -41,6 +41,19 @@ interface MetricDao {
     )
     suspend fun queryRange(fromMillis: Long, toMillis: Long): List<MetricSampleEntity>
 
+    @Query(
+        """
+        SELECT MIN(value) AS min_value, MAX(value) AS max_value, AVG(value) AS avg_value
+        FROM metric_sample
+        WHERE metric = :metric AND ts >= :fromMillis AND ts <= :toMillis
+        """,
+    )
+    suspend fun statistics(
+        metric: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): MetricStatsRow
+
     @Query("SELECT COUNT(*) FROM metric_sample")
     suspend fun countSamples(): Long
 

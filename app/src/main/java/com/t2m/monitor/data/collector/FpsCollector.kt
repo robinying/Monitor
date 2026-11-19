@@ -19,6 +19,8 @@ class FpsCollector @Inject constructor(
 
     override val intervalMillis: Long = DEFAULT_INTERVAL_MILLIS
 
+    override val timeoutMillis: Long = COLLECT_TIMEOUT_MILLIS
+
     override fun isAvailable(): Boolean = source.isAvailable()
 
     override suspend fun collect(): Float? = withContext(Dispatchers.IO) {
@@ -26,6 +28,7 @@ class FpsCollector @Inject constructor(
     }
 
     private companion object {
+        const val COLLECT_TIMEOUT_MILLIS = 1_500L
         const val DEFAULT_INTERVAL_MILLIS = 5_000L
     }
 }

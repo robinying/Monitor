@@ -120,7 +120,8 @@
     <string name="thermal_title">Temperatura do dispositivo</string>
     <string name="thermal_hottest_zone">Zona mais quente %1$s</string>
     <string name="usage_title">App em primeiro plano e tráfego</string>
-    <string name="usage_foreground_app">App em primeiro plano</string>
+    <string name="usage_foreground_app">App usado recentemente</string>
+    <string name="usage_partial_hint">Alguns dados de uso não estão disponíveis</string>
     <string name="usage_traffic_value">Recebido %1$s · Enviado %2$s</string>
     <string name="usage_permission_missing">Acesso de uso não concedido</string>
     <string name="usage_permission_action">Conceder</string>
@@ -146,6 +147,9 @@
     <string name="diagnostics_never_run">Ainda não executado</string>
     <string name="diagnostics_success_rate">%1$s de sucesso</string>
     <string name="diagnostics_counts">OK %1$d · Falhas %2$d</string>
+    <string name="diagnostics_skipped">Ignorado: indisponível</string>
+    <string name="diagnostics_last_failed">Última tentativa falhou</string>
+    <string name="diagnostics_counts_with_skipped">OK %1$d · Falhas %2$d · Ignorados %3$d</string>
     <string name="diagnostics_last_duration">Último %1$d ms</string>
     <string name="diagnostics_reset">Reiniciar</string>
     <string name="diagnostics_error_source">Sistema</string>
@@ -160,7 +164,7 @@
     <string name="collector_app_storage">Armazen. apps</string>
     <string name="dashboard_section_live">Estado ao vivo</string>
     <string name="dashboard_cpu_usage_limited">Uso restrito pelo sistema; mostrando núcleos e frequência</string>
-    <string name="csv_header">Hora,Bateria (%),Temp. bateria (℃),CPU (%),Memória (%),Armazenamento (%),Temp. dispositivo (℃)</string>
+    <string name="csv_header" formatted="false">Hora,Bateria (%),Temp. bateria (℃),CPU (%),Memória (%),Armazenamento (%),Temp. dispositivo (℃),Taxa de quadros (fps)</string>
     <plurals name="label_cores">
         <item quantity="one">%1$d núcleo</item>
         <item quantity="other">%1$d núcleos</item>

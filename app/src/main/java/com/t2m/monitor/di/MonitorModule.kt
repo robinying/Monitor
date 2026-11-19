@@ -15,6 +15,8 @@ import com.t2m.monitor.data.collector.AndroidBatterySource
 import com.t2m.monitor.data.db.AlertDao
 import com.t2m.monitor.data.db.MetricDao
 import com.t2m.monitor.data.db.MonitorDatabase
+import com.t2m.monitor.data.db.RoomTransactionRunner
+import com.t2m.monitor.data.db.TransactionRunner
 import com.t2m.monitor.data.collector.AndroidCpuStatSource
 import com.t2m.monitor.data.collector.AndroidMemorySource
 import com.t2m.monitor.data.collector.AndroidStorageSource
@@ -92,6 +94,10 @@ object MonitorModule {
 
     @Provides
     fun provideAlertDao(database: MonitorDatabase): AlertDao = database.alertDao()
+
+    @Provides
+    @Singleton
+    fun provideTransactionRunner(impl: RoomTransactionRunner): TransactionRunner = impl
 
     @Provides
     @Singleton

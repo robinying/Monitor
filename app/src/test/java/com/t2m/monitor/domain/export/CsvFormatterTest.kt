@@ -27,7 +27,7 @@ class CsvFormatterTest {
             ),
         )
         val cells = row.split(",")
-        assertEquals(7, cells.size)
+        assertEquals(8, cells.size)
         assertTrue(cells[0].isNotEmpty())
         assertEquals("78", cells[1])
         assertEquals("36.4", cells[2])
@@ -35,6 +35,17 @@ class CsvFormatterTest {
         assertEquals("62", cells[4])
         assertEquals("", cells[5])
         assertEquals("", cells[6])
+        assertEquals("", cells[7])
+    }
+
+    @Test
+    fun `formats frame rate in the last column`() {
+        val cells = CsvFormatter
+            .formatRow(1_700_000_000_000L, mapOf(MetricKeys.FPS to 59.6f))
+            .split(",")
+
+        assertEquals(8, cells.size)
+        assertEquals("60", cells[7])
     }
 
     @Test

@@ -31,6 +31,7 @@ class DiagnosticsRepositoryTest {
         assertEquals(1, diagnostic.consecutiveFailures)
         assertEquals(9L, diagnostic.lastDurationMillis)
         assertEquals("boom", diagnostic.lastError)
+        assertEquals(CollectorStatus.FAILURE, diagnostic.lastStatus)
         assertEquals(66.6f, diagnostic.successRatePercent!!, 0.1f)
     }
 
@@ -44,6 +45,7 @@ class DiagnosticsRepositoryTest {
         val diagnostic = repository.diagnostics.value.single()
         assertEquals(0, diagnostic.consecutiveFailures)
         assertNull(diagnostic.lastError)
+        assertEquals(CollectorStatus.SUCCESS, diagnostic.lastStatus)
         assertEquals(1L, diagnostic.successCount)
     }
 
@@ -56,6 +58,7 @@ class DiagnosticsRepositoryTest {
         assertEquals(0L, diagnostic.successCount)
         assertEquals(0L, diagnostic.failureCount)
         assertNull(diagnostic.lastError)
+        assertEquals(CollectorStatus.SKIPPED, diagnostic.lastStatus)
         assertTrue(repository.recentErrors.value.isEmpty())
     }
 

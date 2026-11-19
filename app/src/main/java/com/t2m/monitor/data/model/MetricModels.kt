@@ -18,6 +18,7 @@ object MetricKeys {
         MEMORY_USED_PERCENT,
         STORAGE_USED_PERCENT,
         THERMAL_MAX,
+        FPS,
     )
 }
 
@@ -30,6 +31,13 @@ object MetricKeys {
 data class MetricPoint(
     val timestampMillis: Long,
     val value: Float,
+)
+
+/** 指定区间内原始样本的统计值；无样本时各字段为 null。 */
+data class MetricStats(
+    val minValue: Float?,
+    val maxValue: Float?,
+    val avgValue: Float?,
 )
 
 /** 一次聚合写入的数据（10 秒窗口的平均值）。 */
@@ -67,10 +75,19 @@ object RetentionPolicy {
     const val HOURLY_RETENTION_DAYS = 90L
 
     private const val DAY_MILLIS = 24L * 60 * 60 * 1000
+    private const val HOUR_MILLIS = 60L * 60 * 1000
 
-    /** 原始样本的清理截止时间（早于该时间的样本先聚合再删除）。 */
-    fun rawCutoff(nowMillis: Long): Long = nowMillis - RAW_RETENTION_DAYS * DAY_MILLIS
+    /**
+     * 原始样本的清理截止时间（早于该时间的样本先聚合再删除）。
+     *
+     * 截止时间向下对齐到整小时：滚动聚合按小时分组，若截止时间落在小时中间，
+     * 同一小时会被分两次归档，后一次 REPLACE 会覆盖前一次已删除样本的统计。
+     */
+    fun rawCutoff(nowMillis: Long): Long = alignToHour(nowMillis - RAW_RETENTION_DAYS * DAY_MILLIS)
 
-    /** 小时聚合的清理截止时间。 */
-    fun hourlyCutoff(nowMillis: Long): Long = nowMillis - HOURLY_RETENTION_DAYS * DAY_MILLIS
+    /** 小时聚合的清理截止时间（同样对齐到整小时，与聚合分组一致）。 */
+    fun hourlyCutoff(nowMillis: Long): Long = alignToHour(nowMillis - HOURLY_RETENTION_DAYS * DAY_MILLIS)
+
+    private fun alignToHour(timestampMillis: Long): Long =
+        timestampMillis - Math.floorMod(timestampMillis, HOUR_MILLIS)
 }

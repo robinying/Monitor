@@ -120,7 +120,8 @@
     <string name="thermal_title">Device temperature</string>
     <string name="thermal_hottest_zone">Hottest zone %1$s</string>
     <string name="usage_title">Foreground app &amp; traffic</string>
-    <string name="usage_foreground_app">Foreground app</string>
+    <string name="usage_foreground_app">Recently used app</string>
+    <string name="usage_partial_hint">Some usage data is unavailable</string>
     <string name="usage_traffic_value">Down %1$s · Up %2$s</string>
     <string name="usage_permission_missing">Usage access not granted</string>
     <string name="usage_permission_action">Grant</string>
@@ -146,6 +147,9 @@
     <string name="diagnostics_never_run">Not run yet</string>
     <string name="diagnostics_success_rate">%1$s success</string>
     <string name="diagnostics_counts">OK %1$d · Failed %2$d</string>
+    <string name="diagnostics_skipped">Skipped: unavailable</string>
+    <string name="diagnostics_last_failed">Last attempt failed</string>
+    <string name="diagnostics_counts_with_skipped">OK %1$d · Failed %2$d · Skipped %3$d</string>
     <string name="diagnostics_last_duration">Last %1$d ms</string>
     <string name="diagnostics_reset">Reset stats</string>
     <string name="diagnostics_error_source">System</string>
@@ -160,7 +164,7 @@
     <string name="collector_app_storage">App storage</string>
     <string name="dashboard_section_live">Live status</string>
     <string name="dashboard_cpu_usage_limited">Usage restricted by system; showing cores and frequency</string>
-    <string name="csv_header">Time,Battery (%),Battery temp (℃),CPU (%),Memory (%),Storage (%),Device temp (℃)</string>
+    <string name="csv_header" formatted="false">Time,Battery (%),Battery temp (℃),CPU (%),Memory (%),Storage (%),Device temp (℃),Frame rate (fps)</string>
     <plurals name="label_cores">
         <item quantity="one">%1$d core</item>
         <item quantity="other">%1$d cores</item>

@@ -1,6 +1,7 @@
 package com.t2m.monitor.data.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -21,6 +22,27 @@ class RetentionPolicyTest {
     }
 
     @Test
+    fun `raw cutoff is aligned to a whole hour`() {
+        val midHour = now + 30L * 60 * 1000
+
+        val cutoff = RetentionPolicy.rawCutoff(midHour)
+
+        assertEquals(0L, cutoff % (60L * 60 * 1000))
+        assertEquals(RetentionPolicy.rawCutoff(now), cutoff)
+        assertTrue(cutoff <= midHour - 7L * 24 * 60 * 60 * 1000)
+    }
+
+    @Test
+    fun `hourly cutoff is aligned to a whole hour`() {
+        val midHour = now + 45L * 60 * 1000
+
+        val cutoff = RetentionPolicy.hourlyCutoff(midHour)
+
+        assertEquals(0L, cutoff % (60L * 60 * 1000))
+        assertTrue(cutoff <= midHour - 90L * 24 * 60 * 60 * 1000)
+    }
+
+    @Test
     fun `csv metric order is stable`() {
         assertEquals(
             listOf(
@@ -30,6 +52,7 @@ class RetentionPolicyTest {
                 MetricKeys.MEMORY_USED_PERCENT,
                 MetricKeys.STORAGE_USED_PERCENT,
                 MetricKeys.THERMAL_MAX,
+                MetricKeys.FPS,
             ),
             MetricKeys.ALL,
         )

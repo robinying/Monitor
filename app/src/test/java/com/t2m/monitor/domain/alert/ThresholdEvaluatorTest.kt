@@ -1,5 +1,7 @@
 package com.t2m.monitor.domain.alert
 
+import com.t2m.monitor.data.collector.CollectorId
+import com.t2m.monitor.data.model.AlertEvent
 import com.t2m.monitor.data.model.AlertType
 import com.t2m.monitor.data.model.BatterySnapshot
 import com.t2m.monitor.data.model.BatteryStatus
@@ -47,11 +49,28 @@ class ThresholdEvaluatorTest {
         evaluator.evaluate(snapshot(temperature = 46.0), 2_000L)
         assertEquals(1, evaluator.evaluate(snapshot(temperature = 46.0), 3_000L).size)
 
-        val suppressed = evaluator.evaluate(snapshot(temperature = 46.0), 3_000L + 5 * 60_000L)
-        assertTrue(suppressed.isEmpty())
+        // 按 10 秒间隔持续采样，避免把测试的时间跳变误当成暂停。
+        val suppressed = evaluateEveryTenSeconds(fromMillis = 3_000L, untilMillis = 3_000L + 5 * 60_000L)
+        assertTrue(suppressed.all { events -> events.isEmpty() })
 
-        val afterWindow = evaluator.evaluate(snapshot(temperature = 46.0), 3_000L + 31 * 60_000L)
-        assertEquals(1, afterWindow.size)
+        val afterWindow = evaluateEveryTenSeconds(
+            fromMillis = 3_000L + 5 * 60_000L,
+            untilMillis = 3_000L + 31 * 60_000L,
+        )
+        assertEquals(1, afterWindow.sumOf { events -> events.size })
+    }
+
+    private fun evaluateEveryTenSeconds(
+        fromMillis: Long,
+        untilMillis: Long,
+    ): List<List<AlertEvent>> {
+        val results = mutableListOf<List<AlertEvent>>()
+        var timestamp = fromMillis
+        while (timestamp < untilMillis) {
+            timestamp += 10_000L
+            results += evaluator.evaluate(snapshot(temperature = 46.0), timestamp)
+        }
+        return results
     }
 
     @Test
@@ -87,11 +106,65 @@ class ThresholdEvaluatorTest {
         )
     }
 
+    @Test
+    fun `stale retained values do not count as new consecutive samples`() {
+        val stale = snapshot(
+            temperature = 46.0,
+            sampleTimestampsMillis = mapOf(CollectorId.BATTERY to 1_000L),
+        )
+
+        repeat(3) {
+            assertTrue(evaluator.evaluate(stale, 2_000L).isEmpty())
+        }
+    }
+
+    @Test
+    fun `debounce follows the monotonic clock when the wall clock moves`() {
+        val evaluator = ThresholdEvaluator(requiredConsecutiveSamples = 1)
+        val dayMillis = 24L * 60 * 60 * 1000
+        val base = 1_000_000L
+        assertEquals(1, evaluator.evaluate(snapshot(batteryPercent = 15), base, base).size)
+
+        // 墙上时钟回拨一天，但单调时钟只过了 10 分钟：仍在 30 分钟冷却内。
+        assertTrue(
+            evaluator.evaluate(snapshot(batteryPercent = 15), base - dayMillis, base + 10 * 60_000L)
+                .isEmpty(),
+        )
+        assertEquals(
+            1,
+            evaluator.evaluate(snapshot(batteryPercent = 15), base - dayMillis + 1, base + 31 * 60_000L)
+                .size,
+        )
+    }
+
+    @Test
+    fun `long sampling gap restarts the consecutive window`() {
+        evaluator.evaluate(snapshot(temperature = 46.0), 1_000L)
+        evaluator.evaluate(snapshot(temperature = 46.0), 2_000L)
+
+        // 暂停 20 秒后恢复：之前的两次不应计入新的连续窗口。
+        assertTrue(evaluator.evaluate(snapshot(temperature = 46.0), 22_000L).isEmpty())
+        assertTrue(evaluator.evaluate(snapshot(temperature = 46.0), 23_000L).isEmpty())
+        assertEquals(1, evaluator.evaluate(snapshot(temperature = 46.0), 24_000L).size)
+    }
+
+    @Test
+    fun `reset clears consecutive counts but keeps debounce`() {
+        val evaluator = ThresholdEvaluator()
+        evaluator.evaluate(snapshot(temperature = 46.0), 1_000L)
+        evaluator.evaluate(snapshot(temperature = 46.0), 2_000L)
+
+        evaluator.resetConsecutiveCounts()
+
+        assertTrue(evaluator.evaluate(snapshot(temperature = 46.0), 3_000L).isEmpty())
+    }
+
     private fun snapshot(
         batteryPercent: Int = 50,
         temperature: Double = 35.0,
         memoryUsedPercent: Float = 50f,
         storageAvailableGb: Double = 50.0,
+        sampleTimestampsMillis: Map<CollectorId, Long> = emptyMap(),
     ): MonitorSnapshot {
         val memoryTotal = 1_000L * 1024 * 1024
         return MonitorSnapshot(
@@ -114,6 +187,7 @@ class ThresholdEvaluatorTest {
                 totalBytes = 100L * 1024 * 1024 * 1024,
                 availableBytes = (storageAvailableGb * 1024 * 1024 * 1024).toLong(),
             ),
+            sampleTimestampsMillis = sampleTimestampsMillis,
         )
     }
 }

@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.ConnectivityManager
+import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.UsageSnapshot
 import com.t2m.monitor.data.permission.PermissionChecker
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,7 +32,11 @@ interface UsageSource {
 class AndroidUsageSource @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val permissionChecker: PermissionChecker,
+    private val logger: MonitorLogger,
 ) : UsageSource {
+
+    /** 查询失败按来源只记录一次，避免 5 秒采样周期刷屏。 */
+    private var failureLogged = false
 
     override fun isAvailable(): Boolean = permissionChecker.hasUsageStatsPermission()
 
@@ -42,30 +47,44 @@ class AndroidUsageSource @Inject constructor(
         val usageStatsManager = context.getSystemService(UsageStatsManager::class.java)
             ?: return null
         val now = System.currentTimeMillis()
-        val foregroundPackage = readForegroundPackage(usageStatsManager, now)
+        val foregroundPackage = try {
+            readForegroundPackage(usageStatsManager, now)
+        } catch (error: Exception) {
+            warnOnce("read foreground app failed", error)
+            null
+        }
         val networkStats = readTodayNetworkBytes(now)
 
-        return UsageSnapshot(
+        // 全部字段为空时返回 null，让诊断层记为失败而不是“成功但无数据”。
+        return usageSnapshotOrNull(
             foregroundPackage = foregroundPackage,
             foregroundAppLabel = foregroundPackage?.let(::resolveAppLabel),
-            todayMobileRxBytes = networkStats?.getOrNull(0),
-            todayMobileTxBytes = networkStats?.getOrNull(1),
-            todayWifiRxBytes = networkStats?.getOrNull(2),
-            todayWifiTxBytes = networkStats?.getOrNull(3),
+            networkStats = networkStats,
         )
+    }
+
+    private fun warnOnce(message: String, error: Exception) {
+        if (failureLogged) {
+            return
+        }
+        failureLogged = true
+        logger.warn(message, error)
     }
 
     private fun readForegroundPackage(usageStatsManager: UsageStatsManager, nowMillis: Long): String? {
         queryRecentForeground(usageStatsManager, nowMillis, FOREGROUND_LOOKBACK_MILLIS)?.let { return it }
         // 长时间停留在同一页面时近期没有切换事件，扩大窗口后再兜底到最近使用的应用。
         queryRecentForeground(usageStatsManager, nowMillis, FOREGROUND_FALLBACK_MILLIS)?.let { return it }
-        return runCatching {
+        return try {
             usageStatsManager.queryUsageStats(
                 UsageStatsManager.INTERVAL_DAILY,
                 nowMillis - FOREGROUND_FALLBACK_MILLIS,
                 nowMillis,
             ).orEmpty().maxByOrNull { stats -> stats.lastTimeUsed }?.packageName
-        }.getOrNull()
+        } catch (error: Exception) {
+            warnOnce("query usage stats failed", error)
+            null
+        }
     }
 
     private fun queryRecentForeground(
@@ -127,13 +146,43 @@ class AndroidUsageSource @Inject constructor(
         networkType: Int,
         startMillis: Long,
         endMillis: Long,
-    ): NetworkStats.Bucket? = runCatching {
+    ): NetworkStats.Bucket? = try {
         @Suppress("DEPRECATION")
         networkStatsManager.querySummaryForDevice(networkType, null, startMillis, endMillis)
-    }.getOrNull()
+    } catch (error: Exception) {
+        warnOnce("read today's network usage failed", error)
+        null
+    }
 
     private companion object {
         const val FOREGROUND_LOOKBACK_MILLIS = 60_000L
         const val FOREGROUND_FALLBACK_MILLIS = 10L * 60 * 1000
     }
+}
+
+/**
+ * 组装使用情况快照。
+ *
+ * @return 全部字段为空时返回 null；部分来源不可用时保留有效字段并标记 [UsageSnapshot.partial]
+ */
+internal fun usageSnapshotOrNull(
+    foregroundPackage: String?,
+    foregroundAppLabel: String?,
+    networkStats: List<Long?>?,
+): UsageSnapshot? {
+    val snapshot = UsageSnapshot(
+        foregroundPackage = foregroundPackage,
+        foregroundAppLabel = foregroundAppLabel,
+        todayMobileRxBytes = networkStats?.getOrNull(0),
+        todayMobileTxBytes = networkStats?.getOrNull(1),
+        todayWifiRxBytes = networkStats?.getOrNull(2),
+        todayWifiTxBytes = networkStats?.getOrNull(3),
+    )
+    if (!snapshot.hasData) {
+        return null
+    }
+    val partial = foregroundPackage == null ||
+        networkStats == null ||
+        networkStats.any { bytes -> bytes == null }
+    return snapshot.copy(partial = partial)
 }
