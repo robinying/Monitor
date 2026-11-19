@@ -42,6 +42,21 @@ interface Collector<T : Any> {
 
     /** 执行一次采集；返回 null 表示本轮无有效数据。 */
     suspend fun collect(): T?
+
+    /** 能力不可用时的原因；默认“不可用”，需要特权的采集器应覆盖。 */
+    fun unavailableStatus(): MetricStatus = MetricStatus.SKIPPED
+}
+
+/** 指标最近一次读取结果的原因，用于界面解释“为什么没有值”。 */
+enum class MetricStatus {
+    OK,
+    EMPTY,
+    SKIPPED,
+    PRIVILEGE_DENIED,
+    UNSUPPORTED,
+    TIMEOUT,
+    PARSE_FAILED,
+    ERROR,
 }
 
 /**
@@ -51,6 +66,7 @@ interface Collector<T : Any> {
  * @param error 采集过程中抛出的异常，供引擎记录日志。
  * @param durationMillis 本次采集耗时（毫秒）。
  * @param skipped 能力不可用（未授权/未安装）导致本轮跳过，不计为失败。
+ * @param status 最近一次读取状态；未显式指定时由 skipped/error/value 推导。
  */
 data class CollectorResult(
     val id: CollectorId,
@@ -58,6 +74,12 @@ data class CollectorResult(
     val error: Throwable? = null,
     val durationMillis: Long = 0L,
     val skipped: Boolean = false,
+    val status: MetricStatus = when {
+        skipped -> MetricStatus.SKIPPED
+        error != null -> MetricStatus.ERROR
+        value == null -> MetricStatus.EMPTY
+        else -> MetricStatus.OK
+    },
 )
 
 /** 默认单次采集超时预算，适用于电池、CPU、内存等低开销采集器。 */

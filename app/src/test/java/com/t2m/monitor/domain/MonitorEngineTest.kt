@@ -5,6 +5,7 @@ import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.collector.Collector
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorRegistry
+import com.t2m.monitor.data.collector.MetricStatus
 import com.t2m.monitor.data.model.BatterySnapshot
 import com.t2m.monitor.data.model.BatteryStatus
 import com.t2m.monitor.data.model.MemorySnapshot
@@ -61,6 +62,7 @@ class MonitorEngineTest {
         runCurrent()
 
         assertEquals(50, engine.snapshot.value.battery?.percent)
+        assertEquals(MetricStatus.EMPTY, engine.snapshot.value.metricStatuses[CollectorId.BATTERY])
         engine.stop()
         assertFalse(engine.isRunning.value)
     }
@@ -128,6 +130,10 @@ class MonitorEngineTest {
         advanceTimeBy(1_100L)
         runCurrent()
         assertNull(engine.snapshot.value.battery)
+        assertEquals(
+            MetricStatus.SKIPPED,
+            engine.snapshot.value.metricStatuses[CollectorId.BATTERY],
+        )
         engine.stop()
     }
 

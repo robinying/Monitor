@@ -27,7 +27,7 @@ class CsvFormatterTest {
             ),
         )
         val cells = row.split(",")
-        assertEquals(8, cells.size)
+        assertEquals(11, cells.size)
         assertTrue(cells[0].isNotEmpty())
         assertEquals("78", cells[1])
         assertEquals("36.4", cells[2])
@@ -36,6 +36,9 @@ class CsvFormatterTest {
         assertEquals("", cells[5])
         assertEquals("", cells[6])
         assertEquals("", cells[7])
+        assertEquals("", cells[8])
+        assertEquals("", cells[9])
+        assertEquals("", cells[10])
     }
 
     @Test
@@ -44,7 +47,7 @@ class CsvFormatterTest {
             .formatRow(1_700_000_000_000L, mapOf(MetricKeys.FPS to 59.6f))
             .split(",")
 
-        assertEquals(8, cells.size)
+        assertEquals(11, cells.size)
         assertEquals("60", cells[7])
     }
 

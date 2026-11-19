@@ -22,10 +22,13 @@ class ThermalCollector @Inject constructor(
             null
         } else {
             val hottest = zones.first()
+            val status = source.readStatus()
             ThermalSnapshot(
                 maxTemperatureC = hottest.temperatureC,
                 hottestZone = hottest.name,
                 zones = zones,
+                status = status?.status,
+                headroom = status?.headroom,
             )
         }
     }

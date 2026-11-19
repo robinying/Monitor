@@ -22,6 +22,8 @@ class UsageCollector @Inject constructor(
 
     override fun isAvailable(): Boolean = source.isAvailable()
 
+    override fun unavailableStatus(): MetricStatus = MetricStatus.PRIVILEGE_DENIED
+
     override suspend fun collect(): UsageSnapshot? = withContext(Dispatchers.IO) {
         source.read()
     }

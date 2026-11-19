@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.t2m.monitor.core.MonitorLogger
+import com.t2m.monitor.data.model.OverlayMetric
 import com.t2m.monitor.data.model.OverlayMode
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -31,12 +32,21 @@ class MonitorPreferencesTest {
         assertTrue(preferences.setOverlayEnabled(true))
         assertTrue(preferences.setOverlayMode(OverlayMode.PANEL))
         assertTrue(preferences.setOverlayPosition(12, 34))
+        assertTrue(preferences.setOverlayOpacity(65))
+        assertTrue(preferences.setOverlayMetricVisible(OverlayMetric.FPS, false))
 
         val settings = preferences.readOverlaySettings()
         assertTrue(preferences.overlayEnabled.first())
         assertEquals(OverlayMode.PANEL, settings.mode)
         assertEquals(12, settings.x)
         assertEquals(34, settings.y)
+        assertEquals(65, settings.opacityPercent)
+        assertFalse(settings.isVisible(OverlayMetric.FPS))
+        assertTrue(settings.isVisible(OverlayMetric.CPU))
+
+        val flowed = preferences.overlaySettings.first()
+        assertEquals(65, flowed.opacityPercent)
+        assertFalse(flowed.isVisible(OverlayMetric.FPS))
     }
 
     @Test
@@ -48,6 +58,8 @@ class MonitorPreferencesTest {
         val settings = preferences.readOverlaySettings()
         assertEquals(OverlayMode.BUBBLE, settings.mode)
         assertEquals(OverlaySettings.POSITION_UNSET, settings.x)
+        assertEquals(OverlaySettings.DEFAULT_OPACITY_PERCENT, settings.opacityPercent)
+        assertTrue(settings.isVisible(OverlayMetric.BATTERY))
         assertTrue(logger.messages.isNotEmpty())
     }
 
@@ -56,6 +68,8 @@ class MonitorPreferencesTest {
         val preferences = MonitorPreferences(FailingDataStore(), logger)
         assertFalse(preferences.setOverlayEnabled(true))
         assertFalse(preferences.setGuideSeen(true))
+        assertFalse(preferences.setOverlayOpacity(50))
+        assertFalse(preferences.setOverlayMetricVisible(OverlayMetric.CPU, false))
         assertTrue(logger.messages.isNotEmpty())
     }
 

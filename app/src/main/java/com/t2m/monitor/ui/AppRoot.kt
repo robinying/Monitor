@@ -15,6 +15,7 @@ import com.t2m.monitor.ui.dashboard.DashboardRoute
 import com.t2m.monitor.ui.diagnostics.DiagnosticsRoute
 import com.t2m.monitor.ui.history.HistoryRoute
 import com.t2m.monitor.ui.permission.PermissionGuideScreen
+import com.t2m.monitor.ui.settings.SettingsRoute
 
 /**
  * 应用根界面：首次启动进入权限引导，之后进入仪表盘。
@@ -46,6 +47,7 @@ fun AppRoot(
             onOpenGuide = { screen = AppScreen.GUIDE },
             onOpenHistory = { screen = AppScreen.HISTORY },
             onOpenDiagnostics = { screen = AppScreen.DIAGNOSTICS },
+            onOpenSettings = { screen = AppScreen.SETTINGS },
             modifier = modifier,
         )
 
@@ -59,14 +61,20 @@ fun AppRoot(
             modifier = modifier,
         )
 
+        AppScreen.SETTINGS -> SettingsRoute(
+            onBack = { screen = AppScreen.DASHBOARD },
+            modifier = modifier,
+        )
+
         null -> Box(modifier = modifier.fillMaxSize())
     }
 }
 
-/** 应用内页面：权限引导、仪表盘、历史与诊断。 */
+/** 应用内页面：权限引导、仪表盘、历史、诊断与设置。 */
 private enum class AppScreen {
     GUIDE,
     DASHBOARD,
     HISTORY,
     DIAGNOSTICS,
+    SETTINGS,
 }

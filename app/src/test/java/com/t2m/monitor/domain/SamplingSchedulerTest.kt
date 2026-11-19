@@ -3,6 +3,7 @@ package com.t2m.monitor.domain
 import com.t2m.monitor.data.collector.Collector
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorResult
+import com.t2m.monitor.data.collector.MetricStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,6 +83,7 @@ class SamplingSchedulerTest {
         val slowResults = byId[CollectorId.APP_STORAGE].orEmpty()
         assertTrue(slowResults.isNotEmpty())
         assertTrue(slowResults.all { result -> result.error is CollectorTimeoutException })
+        assertTrue(slowResults.all { result -> result.status == MetricStatus.TIMEOUT })
     }
 
     @Test
@@ -118,6 +120,7 @@ class SamplingSchedulerTest {
 
         val skipped = callbacks.flatten().first { result -> result.id == CollectorId.USAGE }
         assertTrue(skipped.skipped)
+        assertEquals(MetricStatus.SKIPPED, skipped.status)
         assertTrue(callbacks.flatten().any { result -> result.id == CollectorId.BATTERY && result.value != null })
     }
 
@@ -149,6 +152,56 @@ class SamplingSchedulerTest {
         job.cancel()
 
         assertEquals(2, attempts)
+    }
+
+    @Test
+    fun `reports empty values with an empty status`() = runTest {
+        val empty = object : Collector<Any> {
+            override val id: CollectorId = CollectorId.STORAGE
+            override val intervalMillis: Long = 1_000L
+            override suspend fun collect(): Any? = null
+        }
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        var captured: CollectorResult? = null
+
+        val job = launch {
+            scheduler.run(
+                collectors = listOf(empty),
+                now = { testScheduler.currentTime },
+                onResults = { results -> captured = results.single() },
+            )
+        }
+        advanceTimeBy(100L)
+        runCurrent()
+        job.cancel()
+
+        assertEquals(MetricStatus.EMPTY, captured?.status)
+    }
+
+    @Test
+    fun `uses the collector privilege reason for unavailable capabilities`() = runTest {
+        val unavailable = object : Collector<Int> {
+            override val id: CollectorId = CollectorId.USAGE
+            override val intervalMillis: Long = 1_000L
+            override fun isAvailable(): Boolean = false
+            override fun unavailableStatus(): MetricStatus = MetricStatus.PRIVILEGE_DENIED
+            override suspend fun collect(): Int = error("must not run")
+        }
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        var captured: CollectorResult? = null
+
+        val job = launch {
+            scheduler.run(
+                collectors = listOf(unavailable),
+                now = { testScheduler.currentTime },
+                onResults = { results -> captured = results.single() },
+            )
+        }
+        advanceTimeBy(100L)
+        runCurrent()
+        job.cancel()
+
+        assertEquals(MetricStatus.PRIVILEGE_DENIED, captured?.status)
     }
 
     @Test
@@ -203,6 +256,7 @@ class SamplingSchedulerTest {
         val result = captured?.single()
         assertNotNull(result)
         assertNotNull(result!!.error)
+        assertEquals(MetricStatus.ERROR, result.status)
     }
 
     private class FakeCollector(

@@ -33,7 +33,12 @@ class MetricAggregator(
         snapshot.memory?.usedPercent?.let { append(MetricKeys.MEMORY_USED_PERCENT, it) }
         snapshot.storage?.usedPercent?.let { append(MetricKeys.STORAGE_USED_PERCENT, it) }
         snapshot.thermal?.maxTemperatureC?.let { append(MetricKeys.THERMAL_MAX, it) }
-        snapshot.fps?.let { append(MetricKeys.FPS, it) }
+        snapshot.fps?.let { fps ->
+            append(MetricKeys.FPS, fps.fps)
+            fps.frameTimeP95Millis?.let { append(MetricKeys.FPS_P95, it.toFloat()) }
+            fps.frameTimeP99Millis?.let { append(MetricKeys.FPS_P99, it.toFloat()) }
+            fps.jankPercent?.let { append(MetricKeys.FPS_JANK, it) }
+        }
     }
 
     @Synchronized

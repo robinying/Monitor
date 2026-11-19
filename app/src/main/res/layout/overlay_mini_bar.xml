@@ -33,6 +33,7 @@
     </LinearLayout>
 
     <View
+        android:id="@+id/miniDivider1"
         android:layout_width="1dp"
         android:layout_height="20dp"
         android:layout_marginHorizontal="10dp"
@@ -62,6 +63,7 @@
     </LinearLayout>
 
     <View
+        android:id="@+id/miniDivider2"
         android:layout_width="1dp"
         android:layout_height="20dp"
         android:layout_marginHorizontal="10dp"
@@ -91,6 +93,7 @@
     </LinearLayout>
 
     <View
+        android:id="@+id/miniDivider3"
         android:layout_width="1dp"
         android:layout_height="20dp"
         android:layout_marginHorizontal="10dp"

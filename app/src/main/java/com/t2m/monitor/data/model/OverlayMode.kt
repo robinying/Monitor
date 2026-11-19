@@ -21,3 +21,14 @@ enum class OverlayMode {
         PANEL -> BUBBLE
     }
 }
+
+
+/** 可在悬浮窗中单独显示的指标。 */
+enum class OverlayMetric {
+    BATTERY,
+    TEMPERATURE,
+    CPU,
+    MEMORY,
+    STORAGE,
+    FPS,
+}

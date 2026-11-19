@@ -1,5 +1,8 @@
 package com.t2m.monitor.data.collector
 
+import com.t2m.monitor.data.model.ThermalStatusLevel
+import com.t2m.monitor.data.model.ThermalZoneKind
+
 /**
  * 温区原始值归一化。
  *
@@ -31,6 +34,39 @@ object ThermalParser {
         val normalized = zoneType.lowercase()
         return EXCLUDED_ZONE_TOKENS.none { token -> normalized.contains(token) }
     }
+
+    /** 按温区 type 推断用途，用于分区展示与诊断。 */
+    fun classifyZone(zoneType: String): ThermalZoneKind {
+        val normalized = zoneType.lowercase()
+        return when {
+            containsAny(normalized, "gpu", "kgsl", "mali") -> ThermalZoneKind.GPU
+            containsAny(normalized, "battery", "batt") -> ThermalZoneKind.BATTERY
+            containsAny(normalized, "skin", "case", "back", "shell", "frame", "board") ->
+                ThermalZoneKind.SKIN
+
+            containsAny(normalized, "cpu", "cluster", "core", "soc") -> ThermalZoneKind.CPU
+            else -> ThermalZoneKind.OTHER
+        }
+    }
+
+    /** 映射 PowerManager.THERMAL_STATUS_*；未知值返回 null。 */
+    fun parseStatus(rawStatus: Int): ThermalStatusLevel? = when (rawStatus) {
+        0 -> ThermalStatusLevel.NONE
+        1 -> ThermalStatusLevel.LIGHT
+        2 -> ThermalStatusLevel.MODERATE
+        3 -> ThermalStatusLevel.SEVERE
+        4 -> ThermalStatusLevel.CRITICAL
+        5 -> ThermalStatusLevel.EMERGENCY
+        6 -> ThermalStatusLevel.SHUTDOWN
+        else -> null
+    }
+
+    /** NaN/负数/无穷表示 HAL 未提供数据，返回 null 而不是 0。 */
+    fun classifyHeadroom(rawHeadroom: Float): Float? =
+        rawHeadroom.takeIf { value -> value.isFinite() && value >= 0f }
+
+    private fun containsAny(value: String, vararg tokens: String): Boolean =
+        tokens.any { token -> value.contains(token) }
 
     fun normalize(rawValue: Float): Float? {
         if (rawValue <= 0f) {

@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.t2m.monitor.R
 import com.t2m.monitor.core.FeatureConfig
 import com.t2m.monitor.core.MonitorRuntime
+import com.t2m.monitor.data.collector.FpsCollector
 import com.t2m.monitor.data.prefs.MonitorPreferences
 import com.t2m.monitor.domain.MetricRecorder
 import com.t2m.monitor.domain.alert.AlertMonitor
@@ -24,6 +25,7 @@ import com.t2m.monitor.domain.alert.AlertNotifier
 import com.t2m.monitor.domain.MonitorEngine
 import com.t2m.monitor.overlay.OverlayController
 import com.t2m.monitor.ui.MainActivity
+import com.t2m.monitor.di.ApplicationScope
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -65,6 +67,13 @@ class MonitorService : Service() {
 
     @Inject
     lateinit var features: FeatureConfig
+
+    @Inject
+    lateinit var fpsCollector: FpsCollector
+
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -125,6 +134,7 @@ class MonitorService : Service() {
         alertMonitor.stop()
         metricRecorder.stop()
         engine.stop()
+        applicationScope.launch { fpsCollector.release() }
         serviceScope.cancel()
         overlayController.release()
         runtime.setSamplingPaused(false)

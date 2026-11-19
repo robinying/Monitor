@@ -3,6 +3,7 @@ package com.t2m.monitor.domain
 import com.t2m.monitor.data.collector.Collector
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorResult
+import com.t2m.monitor.data.collector.MetricStatus
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -49,7 +50,12 @@ class SamplingScheduler(
             )
             // 能力不可用的结果独立发布：即使同轮采集超时，撤权清空仍能到达引擎。
             unavailableCollectors.forEach { collector ->
-                results += CollectorResult(id = collector.id, value = null, skipped = true)
+                results += CollectorResult(
+                    id = collector.id,
+                    value = null,
+                    skipped = true,
+                    status = collector.unavailableStatus(),
+                )
             }
             dueCollectors.forEach { collector ->
                 results += collectWithTimeout(collector)
@@ -82,6 +88,7 @@ class SamplingScheduler(
                 value = null,
                 error = error,
                 durationMillis = elapsedMillisSince(startedAtNanos),
+                status = classify(error),
             )
         }
         val durationMillis = elapsedMillisSince(startedAtNanos)
@@ -91,6 +98,7 @@ class SamplingScheduler(
                 value = null,
                 error = CollectorTimeoutException(collector.id, collector.timeoutMillis),
                 durationMillis = durationMillis,
+                status = MetricStatus.TIMEOUT,
             )
         } else {
             CollectorResult(
@@ -99,6 +107,13 @@ class SamplingScheduler(
                 durationMillis = durationMillis,
             )
         }
+    }
+
+    private fun classify(error: Exception): MetricStatus = when (error) {
+        is SecurityException -> MetricStatus.PRIVILEGE_DENIED
+        is UnsupportedOperationException -> MetricStatus.UNSUPPORTED
+        is NumberFormatException -> MetricStatus.PARSE_FAILED
+        else -> MetricStatus.ERROR
     }
 
     private fun elapsedMillisSince(startedAtNanos: Long): Long =

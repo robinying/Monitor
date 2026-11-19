@@ -34,7 +34,10 @@ object CsvFormatter {
     }
 
     private fun formatValue(metric: String, value: Float): String = when (metric) {
-        MetricKeys.BATTERY_TEMPERATURE, MetricKeys.THERMAL_MAX -> String.format(Locale.US, "%.1f", value)
+        MetricKeys.BATTERY_TEMPERATURE, MetricKeys.THERMAL_MAX ->
+            String.format(Locale.US, "%.1f", value)
+
+        MetricKeys.FPS_JANK -> String.format(Locale.US, "%.1f", value)
         else -> String.format(Locale.US, "%.0f", value)
     }
 }

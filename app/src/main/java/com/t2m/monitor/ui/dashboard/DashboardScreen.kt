@@ -43,16 +43,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.t2m.monitor.R
 import com.t2m.monitor.core.FormatUtils
+import com.t2m.monitor.data.collector.CollectorId
+import com.t2m.monitor.data.collector.MetricStatus
 import com.t2m.monitor.data.model.AppStorageUsage
 import com.t2m.monitor.data.model.BatterySnapshot
 import com.t2m.monitor.data.model.BatteryStatus
+import com.t2m.monitor.data.model.FpsSnapshot
+import com.t2m.monitor.data.model.FpsSource
 import com.t2m.monitor.data.model.CpuSnapshot
 import com.t2m.monitor.data.model.MemorySnapshot
 import com.t2m.monitor.data.model.MonitorSnapshot
 import com.t2m.monitor.data.model.PlugState
 import com.t2m.monitor.data.model.StorageSnapshot
 import com.t2m.monitor.data.model.ThermalSnapshot
+import com.t2m.monitor.data.model.ThermalStatusLevel
 import com.t2m.monitor.data.model.ThermalZone
+import com.t2m.monitor.data.model.ThermalZoneKind
 import com.t2m.monitor.data.model.UsageSnapshot
 import com.t2m.monitor.data.permission.PermissionStatus
 import com.t2m.monitor.ui.components.BatteryRing
@@ -78,6 +84,7 @@ fun DashboardRoute(
     onOpenGuide: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = viewModel(),
 ) {
@@ -95,6 +102,7 @@ fun DashboardRoute(
         onOpenGuide = onOpenGuide,
         onOpenHistory = onOpenHistory,
         onOpenDiagnostics = onOpenDiagnostics,
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -114,6 +122,7 @@ fun DashboardScreen(
     onOpenGuide: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -127,6 +136,9 @@ fun DashboardScreen(
                     )
                 },
                 actions = {
+                    TextButton(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.dashboard_open_settings))
+                    }
                     if (uiState.serviceRunning) {
                         SamplingPill(
                             active = uiState.samplingActive,
@@ -159,6 +171,7 @@ fun DashboardScreen(
                 onOpenDiagnostics = onOpenDiagnostics,
             )
             SectionHeader(title = stringResource(R.string.dashboard_section_live))
+            MetricStatusCard(statuses = uiState.snapshot.metricStatuses)
             BatteryCard(battery = uiState.snapshot.battery)
             CpuCard(cpu = uiState.snapshot.cpu, history = uiState.cpuHistoryPercent)
             uiState.snapshot.fps?.let { fps -> FpsCard(fps = fps) }
@@ -357,6 +370,34 @@ private fun BatteryCard(battery: BatterySnapshot?) {
                     label = stringResource(R.string.label_voltage),
                     value = FormatUtils.formatVoltage(battery?.voltageMv),
                 )
+                DetailRow(
+                    label = stringResource(R.string.label_power),
+                    value = FormatUtils.formatPower(battery?.powerWatts),
+                )
+                battery?.health?.let { health ->
+                    DetailRow(
+                        label = stringResource(R.string.label_health),
+                        value = batteryHealthLabel(health),
+                    )
+                }
+                battery?.cycleCount?.let { cycles ->
+                    DetailRow(
+                        label = stringResource(R.string.label_cycle_count),
+                        value = cycles.toString(),
+                    )
+                }
+                battery?.technology?.let { technology ->
+                    DetailRow(
+                        label = stringResource(R.string.label_technology),
+                        value = technology,
+                    )
+                }
+                battery?.designCapacityMah?.let { capacity ->
+                    DetailRow(
+                        label = stringResource(R.string.label_design_capacity),
+                        value = FormatUtils.formatMah(capacity),
+                    )
+                }
                 battery?.takeIf { it.plugged != PlugState.NONE }?.let {
                     Text(
                         text = plugStateLabel(it.plugged),
@@ -444,19 +485,111 @@ private fun CpuCard(cpu: CpuSnapshot?, history: List<Float>) {
 }
 
 @Composable
-private fun FpsCard(fps: Float) {
+private fun MetricStatusCard(statuses: Map<CollectorId, MetricStatus>) {
+    val entries = statuses.entries
+        .filter { entry -> entry.value != MetricStatus.OK }
+        .sortedBy { entry -> entry.key.ordinal }
+    if (entries.isEmpty()) {
+        return
+    }
+    MetricCard(title = stringResource(R.string.metric_status_title)) {
+        entries.forEach { (id, status) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(collectorLabelRes(id)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                StatusPill(text = metricStatusLabel(status), tone = metricStatusTone(status))
+            }
+        }
+    }
+}
+
+@Composable
+private fun metricStatusLabel(status: MetricStatus): String = stringResource(
+    when (status) {
+        MetricStatus.OK -> R.string.metric_status_ok
+        MetricStatus.EMPTY -> R.string.metric_status_empty
+        MetricStatus.SKIPPED -> R.string.metric_status_skipped
+        MetricStatus.PRIVILEGE_DENIED -> R.string.metric_status_privilege
+        MetricStatus.UNSUPPORTED -> R.string.metric_status_unsupported
+        MetricStatus.TIMEOUT -> R.string.metric_status_timeout
+        MetricStatus.PARSE_FAILED -> R.string.metric_status_parse_failed
+        MetricStatus.ERROR -> R.string.metric_status_error
+    },
+)
+
+private fun metricStatusTone(status: MetricStatus): PillTone = when (status) {
+    MetricStatus.TIMEOUT, MetricStatus.ERROR, MetricStatus.PARSE_FAILED -> PillTone.NEGATIVE
+    MetricStatus.PRIVILEGE_DENIED -> PillTone.WARNING
+    MetricStatus.OK, MetricStatus.EMPTY, MetricStatus.SKIPPED, MetricStatus.UNSUPPORTED ->
+        PillTone.NEUTRAL
+}
+
+private fun collectorLabelRes(id: CollectorId): Int = when (id) {
+    CollectorId.BATTERY -> R.string.collector_battery
+    CollectorId.CPU -> R.string.collector_cpu
+    CollectorId.MEMORY -> R.string.collector_memory
+    CollectorId.STORAGE -> R.string.collector_storage
+    CollectorId.THERMAL -> R.string.collector_thermal
+    CollectorId.USAGE -> R.string.collector_usage
+    CollectorId.FPS -> R.string.collector_fps
+    CollectorId.APP_STORAGE -> R.string.collector_app_storage
+}
+
+@Composable
+private fun FpsCard(fps: FpsSnapshot) {
     MetricCard(
         title = stringResource(R.string.fps_title),
         accent = MaterialTheme.colorScheme.primary,
     ) {
         Text(
-            text = FormatUtils.formatFps(fps),
+            text = FormatUtils.formatFps(fps.fps),
             style = MaterialTheme.typography.displaySmall,
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(6.dp))
+        val quality = when {
+            fps.frameTimeP95Millis != null && fps.jankPercent != null -> stringResource(
+                R.string.fps_detail,
+                fps.frameTimeP95Millis,
+                FormatUtils.formatPercent(fps.jankPercent),
+            )
+
+            fps.frameTimeP95Millis != null -> stringResource(
+                R.string.fps_p95_detail,
+                fps.frameTimeP95Millis,
+            )
+
+            fps.jankPercent != null -> stringResource(
+                R.string.fps_jank_detail,
+                FormatUtils.formatPercent(fps.jankPercent),
+            )
+
+            else -> null
+        }
+        if (quality != null) {
+            Text(
+                text = quality,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
         Text(
-            text = stringResource(R.string.fps_hint),
+            text = stringResource(
+                when (fps.source) {
+                    FpsSource.TIMESTATS -> R.string.fps_source_timestats
+                    FpsSource.LATENCY -> R.string.fps_source_latency
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -469,6 +602,14 @@ private fun ThermalCard(thermal: ThermalSnapshot?) {
     MetricCard(
         title = stringResource(R.string.thermal_title),
         accent = accent,
+        chip = thermal?.status?.let { status ->
+            {
+                StatusPill(
+                    text = thermalStatusLabel(status),
+                    tone = thermalStatusTone(status),
+                )
+            }
+        },
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -485,6 +626,29 @@ private fun ThermalCard(thermal: ThermalSnapshot?) {
                     modifier = Modifier.padding(bottom = 6.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        thermal?.headroom?.let { headroom ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.thermal_headroom, headroom),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val kindTemperatures = thermal?.zones
+            ?.groupBy { zone -> zone.kind }
+            ?.mapValues { (_, zones) -> zones.maxOf { zone -> zone.temperatureC } }
+            .orEmpty()
+            .filterKeys { kind -> kind != ThermalZoneKind.OTHER }
+        if (kindTemperatures.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            kindTemperatures.forEach { (kind, temperature) ->
+                DetailRow(
+                    label = thermalZoneKindLabel(kind),
+                    value = FormatUtils.formatTemperature(temperature.toDouble()),
+                    valueColor = temperatureColor(temperature.toDouble()),
                 )
             }
         }
@@ -689,6 +853,50 @@ private fun DetailRow(
 }
 
 @Composable
+private fun batteryHealthLabel(health: Int): String = stringResource(
+    when (health) {
+        2 -> R.string.battery_health_good
+        3 -> R.string.battery_health_overheat
+        4 -> R.string.battery_health_dead
+        5 -> R.string.battery_health_over_voltage
+        6 -> R.string.battery_health_unspecified_failure
+        7 -> R.string.battery_health_cold
+        else -> R.string.battery_health_unknown
+    },
+)
+
+@Composable
+private fun thermalStatusLabel(status: ThermalStatusLevel): String = stringResource(
+    when (status) {
+        ThermalStatusLevel.NONE -> R.string.thermal_status_none
+        ThermalStatusLevel.LIGHT -> R.string.thermal_status_light
+        ThermalStatusLevel.MODERATE -> R.string.thermal_status_moderate
+        ThermalStatusLevel.SEVERE -> R.string.thermal_status_severe
+        ThermalStatusLevel.CRITICAL -> R.string.thermal_status_critical
+        ThermalStatusLevel.EMERGENCY -> R.string.thermal_status_emergency
+        ThermalStatusLevel.SHUTDOWN -> R.string.thermal_status_shutdown
+    },
+)
+
+private fun thermalStatusTone(status: ThermalStatusLevel): PillTone = when (status) {
+    ThermalStatusLevel.NONE -> PillTone.NEUTRAL
+    ThermalStatusLevel.LIGHT, ThermalStatusLevel.MODERATE -> PillTone.WARNING
+    ThermalStatusLevel.SEVERE, ThermalStatusLevel.CRITICAL, ThermalStatusLevel.EMERGENCY,
+    ThermalStatusLevel.SHUTDOWN -> PillTone.NEGATIVE
+}
+
+@Composable
+private fun thermalZoneKindLabel(kind: ThermalZoneKind): String = stringResource(
+    when (kind) {
+        ThermalZoneKind.CPU -> R.string.thermal_zone_cpu
+        ThermalZoneKind.GPU -> R.string.thermal_zone_gpu
+        ThermalZoneKind.BATTERY -> R.string.thermal_zone_battery
+        ThermalZoneKind.SKIN -> R.string.thermal_zone_skin
+        ThermalZoneKind.OTHER -> R.string.thermal_zone_other
+    },
+)
+
+@Composable
 private fun batteryStatusLabel(status: BatteryStatus): String = stringResource(
     when (status) {
         BatteryStatus.CHARGING -> R.string.battery_status_charging
@@ -764,7 +972,13 @@ private fun previewUiState(): DashboardUiState = DashboardUiState(
             todayWifiRxBytes = 640L * 1024 * 1024,
             todayWifiTxBytes = 32L * 1024 * 1024,
         ),
-        fps = 60f,
+        fps = FpsSnapshot(
+            fps = 60f,
+            frameTimeP95Millis = 18,
+            frameTimeP99Millis = 34,
+            jankPercent = 2.1f,
+            source = FpsSource.TIMESTATS,
+        ),
         appStorage = listOf(
             AppStorageUsage("com.tencent.mm", "Messages", 8L * 1024 * 1024 * 1024),
             AppStorageUsage("com.android.chrome", "Chrome", 3L * 1024 * 1024 * 1024),

@@ -53,6 +53,9 @@ class RetentionPolicyTest {
                 MetricKeys.STORAGE_USED_PERCENT,
                 MetricKeys.THERMAL_MAX,
                 MetricKeys.FPS,
+                MetricKeys.FPS_P95,
+                MetricKeys.FPS_P99,
+                MetricKeys.FPS_JANK,
             ),
             MetricKeys.ALL,
         )

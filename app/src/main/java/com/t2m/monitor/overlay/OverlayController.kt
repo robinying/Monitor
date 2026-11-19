@@ -20,6 +20,7 @@ import com.t2m.monitor.core.FormatUtils
 import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.core.MonitorRuntime
 import com.t2m.monitor.data.model.MonitorSnapshot
+import com.t2m.monitor.data.model.OverlayMetric
 import com.t2m.monitor.data.model.OverlayMode
 import com.t2m.monitor.data.prefs.MonitorPreferences
 import com.t2m.monitor.data.prefs.OverlaySettings
@@ -71,6 +72,14 @@ class OverlayController @Inject constructor(
     private var panelBinding: OverlayPanelBinding? = null
 
     private var updateJob: Job? = null
+
+    private var settingsJob: Job? = null
+
+    private var overlaySettings = OverlaySettings(
+        mode = OverlayMode.BUBBLE,
+        x = OverlaySettings.POSITION_UNSET,
+        y = OverlaySettings.POSITION_UNSET,
+    )
 
     private var menuVisible = false
 
@@ -197,9 +206,12 @@ class OverlayController @Inject constructor(
 
         container = root
         params = layoutParams
+        overlaySettings = settings
+        root.alpha = settings.opacityPercent / 100f
         applyMode(settings.mode, persist = false)
         root.post { clampAndUpdate(persist = true) }
         startSnapshotUpdates()
+        startSettingsUpdates()
         runtime.setOverlayVisible(true)
         scope.launch(Dispatchers.IO) {
             if (!preferences.setOverlayEnabled(true)) {
@@ -211,6 +223,8 @@ class OverlayController @Inject constructor(
     private fun detach() {
         updateJob?.cancel()
         updateJob = null
+        settingsJob?.cancel()
+        settingsJob = null
         menuVisible = false
         val root = container
         if (root != null) {
@@ -234,6 +248,22 @@ class OverlayController @Inject constructor(
         }
     }
 
+    private fun startSettingsUpdates() {
+        settingsJob?.cancel()
+        settingsJob = scope.launch(Dispatchers.Main.immediate) {
+            preferences.overlaySettings.collect { updated ->
+                val modeChanged = updated.mode != overlaySettings.mode
+                overlaySettings = updated
+                container?.alpha = updated.opacityPercent / 100f
+                if (modeChanged && !menuVisible && container != null) {
+                    applyMode(updated.mode, persist = false)
+                } else {
+                    render(engine.snapshot.value)
+                }
+            }
+        }
+    }
+
     private fun cycleMode() {
         if (menuVisible) {
             return
@@ -247,6 +277,7 @@ class OverlayController @Inject constructor(
         root.removeAllViews()
         root.addView(createChild(target))
         mode = target
+        overlaySettings = overlaySettings.copy(mode = target)
         menuVisible = false
         params?.let { layoutParams ->
             val updated = runCatching { windowManager.updateViewLayout(root, layoutParams) }
@@ -300,6 +331,39 @@ class OverlayController @Inject constructor(
             binding.miniCpu.text = FormatUtils.formatPercent(snapshot.cpu?.totalUsagePercent)
             binding.miniMemory.text = FormatUtils.formatPercent(snapshot.memory?.usedPercent)
         }
+        val settings = overlaySettings
+        val showBattery = settings.isVisible(OverlayMetric.BATTERY)
+        val showTemperature = settings.isVisible(OverlayMetric.TEMPERATURE)
+        val showCpu = settings.isVisible(OverlayMetric.CPU)
+        val showMemory = settings.isVisible(OverlayMetric.MEMORY)
+        val showStorage = settings.isVisible(OverlayMetric.STORAGE)
+        val showFps = settings.isVisible(OverlayMetric.FPS) && snapshot.fps != null
+
+        bubbleBinding?.let { binding ->
+            binding.bubbleValue.text = if (showBattery) {
+                percentText
+            } else {
+                context.getString(R.string.value_placeholder)
+            }
+            binding.bubbleValue.visibility = if (showBattery || !showTemperature) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+            binding.bubbleTemperature.visibility = if (showTemperature) View.VISIBLE else View.GONE
+        }
+        miniBarBinding?.let { binding ->
+            setGroupVisible(binding.miniBattery, showBattery)
+            setGroupVisible(binding.miniTemperature, showTemperature)
+            setGroupVisible(binding.miniCpu, showCpu)
+            setGroupVisible(binding.miniMemory, showMemory)
+            binding.miniDivider1.visibility =
+                if (showBattery && showTemperature) View.VISIBLE else View.GONE
+            binding.miniDivider2.visibility =
+                if (showTemperature && showCpu) View.VISIBLE else View.GONE
+            binding.miniDivider3.visibility =
+                if (showCpu && showMemory) View.VISIBLE else View.GONE
+        }
         panelBinding?.let { binding ->
             binding.panelBattery.text = percentText
             binding.panelTemperature.text = temperatureText
@@ -309,13 +373,48 @@ class OverlayController @Inject constructor(
             binding.panelVoltage.text = FormatUtils.formatVoltage(snapshot.battery?.voltageMv)
             binding.panelCurrent.text = FormatUtils.formatCurrent(snapshot.battery?.currentMicroAmps)
             binding.panelMaxFrequency.text = FormatUtils.formatFrequency(snapshot.cpu?.maxFrequencyKHz)
+            binding.panelFps.text = FormatUtils.formatFps(snapshot.fps?.fps)
+            binding.panelJank.text = FormatUtils.formatPercent(snapshot.fps?.jankPercent)
             binding.panelUpdated.text = FormatUtils.formatTimeOfDay(snapshot.timestampMillis)
+
+            setGroupVisible(binding.panelBattery, showBattery)
+            setGroupVisible(binding.panelTemperature, showTemperature)
+            setGroupVisible(binding.panelCpu, showCpu)
+            setGroupVisible(binding.panelMemory, showMemory)
+            setGroupVisible(binding.panelStorage, showStorage)
+            setGroupVisible(binding.panelVoltage, showBattery)
+            setGroupVisible(binding.panelCurrent, showBattery)
+            setGroupVisible(binding.panelMaxFrequency, showCpu)
+            setGroupVisible(binding.panelFps, showFps)
+            setGroupVisible(binding.panelJank, showFps)
+            setRowVisible(binding.panelBattery, binding.panelTemperature)
+            setRowVisible(binding.panelCpu, binding.panelMemory)
+            setRowVisible(binding.panelStorage, binding.panelVoltage)
+            setRowVisible(binding.panelCurrent, binding.panelMaxFrequency)
+            setRowVisible(binding.panelFps, binding.panelJank)
         }
         container?.contentDescription = context.getString(
             R.string.overlay_content_description,
             percentText,
             temperatureText,
         )
+    }
+
+    private fun setGroupVisible(value: View, visible: Boolean) {
+        (value.parent as? View)?.visibility = if (visible) View.VISIBLE else View.GONE
+    }
+
+    private fun setRowVisible(first: View, second: View) {
+        val firstGroup = first.parent as? View ?: return
+        val secondGroup = second.parent as? View ?: return
+        val row = firstGroup.parent as? View
+        row?.visibility = if (firstGroup.visibility == View.VISIBLE ||
+            secondGroup.visibility == View.VISIBLE
+        ) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
     }
 
     /** 长按菜单直接作为悬浮窗内容展示，避免用 PopupWindow 依赖窗口 token。 */

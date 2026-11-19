@@ -5,7 +5,9 @@ import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorRegistry
 import com.t2m.monitor.data.collector.CollectorResult
+import com.t2m.monitor.data.collector.MetricStatus
 import com.t2m.monitor.data.model.BatterySnapshot
+import com.t2m.monitor.data.model.FpsSnapshot
 import com.t2m.monitor.data.model.CpuSnapshot
 import com.t2m.monitor.data.model.MemorySnapshot
 import com.t2m.monitor.data.model.MonitorSnapshot
@@ -57,6 +59,9 @@ class MonitorEngine @Inject constructor(
     /** 各指标最近一次成功采样的墙上时间，随快照发布，供告警判定区分新样本。 */
     private val lastUpdatedAtMillis = mutableMapOf<CollectorId, Long>()
 
+    /** 各指标最近一次读取状态，随快照发布给界面。 */
+    private val metricStatuses = mutableMapOf<CollectorId, MetricStatus>()
+
     private var samplingJob: Job? = null
 
     /** 串行化启动/停止：旧任务释放后新任务才进入采样循环，避免两轮采集并发。 */
@@ -93,6 +98,7 @@ class MonitorEngine @Inject constructor(
         val nowMillis = clock.currentTimeMillis()
         for (result in results) {
             diagnostics.record(result)
+            metricStatuses[result.id] = result.status
             if (result.skipped) {
                 // 能力被撤销（Shizuku/使用情况访问）时清空旧值，避免继续展示过期数据。
                 lastValues.remove(result.id)
@@ -116,10 +122,11 @@ class MonitorEngine @Inject constructor(
             storage = lastValues[CollectorId.STORAGE] as? StorageSnapshot,
             thermal = lastValues[CollectorId.THERMAL] as? ThermalSnapshot,
             usage = lastValues[CollectorId.USAGE] as? UsageSnapshot,
-            fps = lastValues[CollectorId.FPS] as? Float,
+            fps = lastValues[CollectorId.FPS] as? FpsSnapshot,
             appStorage = (lastValues[CollectorId.APP_STORAGE] as? List<*>)
                 ?.filterIsInstance<AppStorageUsage>(),
             sampleTimestampsMillis = lastUpdatedAtMillis.toMap(),
+            metricStatuses = metricStatuses.toMap(),
         )
     }
 }

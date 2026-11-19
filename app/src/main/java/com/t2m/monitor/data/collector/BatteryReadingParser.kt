@@ -23,6 +23,8 @@ object BatteryReadingParser {
     private const val PLUGGED_DOCK = 8
 
     private const val TEMPERATURE_INVALID_MAX = 0
+    private const val MICRO_AMPS_PER_AMP = 1_000_000.0
+    private const val MILLIVOLTS_PER_VOLT = 1_000.0
 
     /**
      * @param reading 原始读数
@@ -38,7 +40,19 @@ object BatteryReadingParser {
         status = mapStatus(reading.status),
         plugged = mapPlugged(reading.plugged),
         health = reading.health,
+        powerWatts = calculatePowerWatts(reading.currentMicroAmps, reading.voltageMv),
+        technology = reading.technology,
+        cycleCount = reading.cycleCount,
+        designCapacityMah = reading.designCapacityMah,
     )
+
+    /** 瞬时功率（瓦）= 电流（A）× 电压（V），放电为负。 */
+    private fun calculatePowerWatts(currentMicroAmps: Int?, voltageMv: Int?): Double? {
+        if (currentMicroAmps == null || voltageMv == null) {
+            return null
+        }
+        return currentMicroAmps / MICRO_AMPS_PER_AMP * voltageMv / MILLIVOLTS_PER_VOLT
+    }
 
     private fun calculatePercent(level: Int, scale: Int): Int? {
         if (level < 0 || scale <= 0) {

@@ -20,6 +20,9 @@ class BatteryReadingParserTest {
         status: Int = 3,
         plugged: Int = 0,
         health: Int? = 2,
+        technology: String? = "Li-ion",
+        cycleCount: Int? = 321,
+        designCapacityMah: Int? = 4500,
     ) = BatteryReading(
         level = level,
         scale = scale,
@@ -29,6 +32,9 @@ class BatteryReadingParserTest {
         status = status,
         plugged = plugged,
         health = health,
+        technology = technology,
+        cycleCount = cycleCount,
+        designCapacityMah = designCapacityMah,
     )
 
     @Test
@@ -38,6 +44,10 @@ class BatteryReadingParserTest {
         assertEquals(36.4, snapshot.temperatureC!!, 0.001)
         assertEquals(-820_000, snapshot.currentMicroAmps)
         assertEquals(4200, snapshot.voltageMv)
+        assertEquals(-3.444, snapshot.powerWatts!!, 0.001)
+        assertEquals("Li-ion", snapshot.technology)
+        assertEquals(321, snapshot.cycleCount)
+        assertEquals(4500, snapshot.designCapacityMah)
     }
 
     @Test
@@ -51,6 +61,12 @@ class BatteryReadingParserTest {
         assertNull(BatteryReadingParser.parse(reading(temperature = 0)).temperatureC)
         assertNull(BatteryReadingParser.parse(reading(temperature = -5)).temperatureC)
         assertNull(BatteryReadingParser.parse(reading(temperature = null)).temperatureC)
+    }
+
+    @Test
+    fun `power is null when current or voltage is unavailable`() {
+        assertNull(BatteryReadingParser.parse(reading(currentUa = null)).powerWatts)
+        assertNull(BatteryReadingParser.parse(reading(voltageMv = null)).powerWatts)
     }
 
     @Test

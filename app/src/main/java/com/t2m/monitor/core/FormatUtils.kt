@@ -82,6 +82,14 @@ object FormatUtils {
         return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestampMillis))
     }
 
+    /** 将功率格式化为 -4.21 W；null 显示占位符。 */
+    fun formatPower(watts: Double?): String =
+        if (watts == null) UNAVAILABLE else String.format(Locale.US, "%.2f W", watts)
+
+    /** 将容量格式化为 4500 mAh；null 显示占位符。 */
+    fun formatMah(milliAmpHours: Int?): String =
+        if (milliAmpHours == null) UNAVAILABLE else String.format(Locale.US, "%d mAh", milliAmpHours)
+
     /** 将帧率格式化为 60 fps；null 显示占位符。 */
     fun formatFps(fps: Float?): String =
         if (fps == null) UNAVAILABLE else String.format(Locale.US, "%.0f fps", fps)

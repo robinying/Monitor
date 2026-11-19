@@ -67,6 +67,14 @@ class FormatUtilsTest {
         )
     }
     @Test
+    fun `formats power and design capacity`() {
+        assertEquals("-3.44 W", FormatUtils.formatPower(-3.444))
+        assertEquals("4500 mAh", FormatUtils.formatMah(4500))
+        assertEquals("--", FormatUtils.formatPower(null))
+        assertEquals("--", FormatUtils.formatMah(null))
+    }
+
+    @Test
     fun `formats fps`() {
         assertEquals("60 fps", FormatUtils.formatFps(59.6f))
         assertEquals("--", FormatUtils.formatFps(null))

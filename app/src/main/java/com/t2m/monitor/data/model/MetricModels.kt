@@ -9,6 +9,9 @@ object MetricKeys {
     const val STORAGE_USED_PERCENT = "storage.used_percent"
     const val THERMAL_MAX = "thermal.max"
     const val FPS = "screen.fps"
+    const val FPS_P95 = "screen.fps.p95"
+    const val FPS_P99 = "screen.fps.p99"
+    const val FPS_JANK = "screen.fps.jank"
 
     /** CSV 导出列顺序。 */
     val ALL: List<String> = listOf(
@@ -19,6 +22,9 @@ object MetricKeys {
         STORAGE_USED_PERCENT,
         THERMAL_MAX,
         FPS,
+        FPS_P95,
+        FPS_P99,
+        FPS_JANK,
     )
 }
 
