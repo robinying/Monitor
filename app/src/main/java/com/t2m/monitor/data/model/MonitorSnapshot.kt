@@ -1,5 +1,7 @@
 package com.t2m.monitor.data.model
 
+import com.t2m.monitor.data.collector.CollectorId
+
 /**
  * 一次采样的聚合结果。
  *
@@ -15,6 +17,8 @@ data class MonitorSnapshot(
     val usage: UsageSnapshot? = null,
     val fps: Float? = null,
     val appStorage: List<AppStorageUsage>? = null,
+    /** 各指标最近一次成功采样的时间戳（墙上时钟，毫秒）；用于区分新样本与保留的旧值。 */
+    val sampleTimestampsMillis: Map<CollectorId, Long> = emptyMap(),
 ) {
     companion object {
         /** 空快照：采样尚未产生任何数据时的初始值。 */
@@ -125,12 +129,13 @@ data class ThermalSnapshot(
 /**
  * 使用情况访问相关指标（需要 PACKAGE_USAGE_STATS 授权）。
  *
- * @param foregroundPackage 最近进入前台的包名，未知时为 null
+ * @param foregroundPackage 最近进入前台或最近使用的包名，未知时为 null
  * @param foregroundAppLabel 应用名；受包可见性限制取不到时回退为包名
  * @param todayMobileRxBytes 今日移动网络下行字节数
  * @param todayMobileTxBytes 今日移动网络上行字节数
  * @param todayWifiRxBytes 今日 Wi-Fi 下行字节数
  * @param todayWifiTxBytes 今日 Wi-Fi 上行字节数
+ * @param partial 部分数据源不可用（部分查询失败）；其余字段仍可展示
  */
 data class UsageSnapshot(
     val foregroundPackage: String?,
@@ -139,7 +144,16 @@ data class UsageSnapshot(
     val todayMobileTxBytes: Long?,
     val todayWifiRxBytes: Long?,
     val todayWifiTxBytes: Long?,
+    val partial: Boolean = false,
 ) {
+    /** 是否至少包含一项有效数据；全空快照不应计为采集成功。 */
+    val hasData: Boolean
+        get() = foregroundPackage != null ||
+            todayMobileRxBytes != null ||
+            todayMobileTxBytes != null ||
+            todayWifiRxBytes != null ||
+            todayWifiTxBytes != null
+
     /** 今日下行总量；两个来源都不可用时为 null。 */
     val todayRxBytes: Long?
         get() = listOfNotNull(todayMobileRxBytes, todayWifiRxBytes)

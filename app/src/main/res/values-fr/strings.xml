@@ -120,7 +120,8 @@
     <string name="thermal_title">Température du dispositif</string>
     <string name="thermal_hottest_zone">Zone la plus chaude %1$s</string>
     <string name="usage_title">App au premier plan et trafic</string>
-    <string name="usage_foreground_app">App au premier plan</string>
+    <string name="usage_foreground_app">App récemment utilisée</string>
+    <string name="usage_partial_hint">Certaines données d\'usage sont indisponibles</string>
     <string name="usage_traffic_value">Réception %1$s · Émission %2$s</string>
     <string name="usage_permission_missing">Accès à l’utilisation non accordé</string>
     <string name="usage_permission_action">Autoriser</string>
@@ -146,6 +147,9 @@
     <string name="diagnostics_never_run">Pas encore exécuté</string>
     <string name="diagnostics_success_rate">%1$s de réussite</string>
     <string name="diagnostics_counts">OK %1$d · Échecs %2$d</string>
+    <string name="diagnostics_skipped">Ignoré : indisponible</string>
+    <string name="diagnostics_last_failed">Dernier échec</string>
+    <string name="diagnostics_counts_with_skipped">OK %1$d · Échecs %2$d · Ignorés %3$d</string>
     <string name="diagnostics_last_duration">Dernier %1$d ms</string>
     <string name="diagnostics_reset">Réinitialiser</string>
     <string name="diagnostics_error_source">Système</string>
@@ -160,7 +164,7 @@
     <string name="collector_app_storage">Stockage apps</string>
     <string name="dashboard_section_live">État en direct</string>
     <string name="dashboard_cpu_usage_limited">Utilisation limitée par le système ; noyaux et fréquence affichés</string>
-    <string name="csv_header">Heure,Batterie (%),Temp. batterie (℃),CPU (%),Mémoire (%),Stockage (%),Temp. appareil (℃)</string>
+    <string name="csv_header" formatted="false">Heure,Batterie (%),Temp. batterie (℃),CPU (%),Mémoire (%),Stockage (%),Temp. appareil (℃),Fréquence d\'images (fps)</string>
     <plurals name="label_cores">
         <item quantity="one">%1$d cœur</item>
         <item quantity="other">%1$d cœurs</item>

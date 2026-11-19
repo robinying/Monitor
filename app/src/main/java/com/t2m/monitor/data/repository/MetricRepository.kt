@@ -2,8 +2,10 @@ package com.t2m.monitor.data.repository
 
 import com.t2m.monitor.data.db.MetricDao
 import com.t2m.monitor.data.db.MetricSampleEntity
+import com.t2m.monitor.data.db.TransactionRunner
 import com.t2m.monitor.data.model.MetricAggregate
 import com.t2m.monitor.data.model.MetricPoint
+import com.t2m.monitor.data.model.MetricStats
 import com.t2m.monitor.data.model.RetentionPolicy
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class MetricRepository @Inject constructor(
     private val metricDao: MetricDao,
+    private val transactionRunner: TransactionRunner,
 ) {
 
     suspend fun insert(aggregates: List<MetricAggregate>) {
@@ -41,6 +44,16 @@ class MetricRepository @Inject constructor(
         .queryBuckets(metric, fromMillis, toMillis, bucketMillis)
         .map { row -> MetricPoint(row.bucketTimestampMillis, row.avgValue) }
 
+    /** 指定区间内原始样本的最小/最大/平均值，统计口径不受历史曲线下采样影响。 */
+    suspend fun statistics(
+        metric: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): MetricStats {
+        val row = metricDao.statistics(metric, fromMillis, toMillis)
+        return MetricStats(row.minValue, row.maxValue, row.avgValue)
+    }
+
     suspend fun sampleCount(): Long = metricDao.countSamples()
 
     suspend fun oldestTimestampMillis(): Long? = metricDao.oldestTimestampMillis()
@@ -54,13 +67,10 @@ class MetricRepository @Inject constructor(
      */
     suspend fun prune(nowMillis: Long) {
         val rawCutoff = RetentionPolicy.rawCutoff(nowMillis)
-        metricDao.rollupHourly(rawCutoff)
-        metricDao.deleteSamplesBefore(rawCutoff)
-        metricDao.deleteHourlyBefore(RetentionPolicy.hourlyCutoff(nowMillis))
-    }
-
-    suspend fun clearAll() {
-        metricDao.clearSamples()
-        metricDao.clearHourly()
+        transactionRunner.run {
+            metricDao.rollupHourly(rawCutoff)
+            metricDao.deleteSamplesBefore(rawCutoff)
+            metricDao.deleteHourlyBefore(RetentionPolicy.hourlyCutoff(nowMillis))
+        }
     }
 }

@@ -18,6 +18,8 @@ class UsageCollector @Inject constructor(
 
     override val intervalMillis: Long = DEFAULT_INTERVAL_MILLIS
 
+    override val timeoutMillis: Long = COLLECT_TIMEOUT_MILLIS
+
     override fun isAvailable(): Boolean = source.isAvailable()
 
     override suspend fun collect(): UsageSnapshot? = withContext(Dispatchers.IO) {
@@ -25,6 +27,7 @@ class UsageCollector @Inject constructor(
     }
 
     private companion object {
+        const val COLLECT_TIMEOUT_MILLIS = 1_000L
         const val DEFAULT_INTERVAL_MILLIS = 5_000L
     }
 }

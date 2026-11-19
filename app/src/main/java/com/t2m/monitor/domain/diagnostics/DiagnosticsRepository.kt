@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * @param failureCount 失败次数（返回 null 或抛出异常）
  * @param lastDurationMillis 最近一次采集耗时
  * @param lastError 最近一次错误信息
+ * @param lastStatus 最近一次结果类型；用于区分“当前不可用”和累计成功率
  */
 data class CollectorDiagnostic(
     val collectorId: CollectorId,
@@ -26,6 +27,7 @@ data class CollectorDiagnostic(
     val lastDurationMillis: Long = 0L,
     val lastUpdatedAtMillis: Long = 0L,
     val lastError: String? = null,
+    val lastStatus: CollectorStatus? = null,
 ) {
     val totalCount: Long
         get() = successCount + failureCount
@@ -37,6 +39,13 @@ data class CollectorDiagnostic(
         } else {
             (successCount.toDouble() / totalCount * 100.0).toFloat()
         }
+}
+
+/** 采集器最近一次结果类型。 */
+enum class CollectorStatus {
+    SUCCESS,
+    FAILURE,
+    SKIPPED,
 }
 
 /**
@@ -78,6 +87,7 @@ class DiagnosticsRepository @Inject constructor(
             stats[result.id] = previous.copy(
                 skippedCount = previous.skippedCount + 1,
                 lastUpdatedAtMillis = clock.currentTimeMillis(),
+                lastStatus = CollectorStatus.SKIPPED,
             )
             publish()
             return
@@ -92,6 +102,7 @@ class DiagnosticsRepository @Inject constructor(
                 lastDurationMillis = result.durationMillis,
                 lastUpdatedAtMillis = clock.currentTimeMillis(),
                 lastError = message,
+                lastStatus = CollectorStatus.FAILURE,
             )
         } else {
             previous.copy(
@@ -100,6 +111,7 @@ class DiagnosticsRepository @Inject constructor(
                 lastDurationMillis = result.durationMillis,
                 lastUpdatedAtMillis = clock.currentTimeMillis(),
                 lastError = null,
+                lastStatus = CollectorStatus.SUCCESS,
             )
         }
         stats[result.id] = updated

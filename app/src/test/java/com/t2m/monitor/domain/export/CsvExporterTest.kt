@@ -5,6 +5,7 @@ import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.db.MetricBucketRow
 import com.t2m.monitor.data.db.MetricDao
 import com.t2m.monitor.data.db.MetricSampleEntity
+import com.t2m.monitor.data.db.MetricStatsRow
 import com.t2m.monitor.data.model.MetricKeys
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -133,6 +134,16 @@ class CsvExporterTest {
 
         override suspend fun queryRange(fromMillis: Long, toMillis: Long): List<MetricSampleEntity> =
             rows.filter { row -> row.timestampMillis >= fromMillis && row.timestampMillis < toMillis }
+
+        override suspend fun statistics(
+            metric: String,
+            fromMillis: Long,
+            toMillis: Long,
+        ): MetricStatsRow = MetricStatsRow(
+            minValue = rows.minOfOrNull { row -> row.value },
+            maxValue = rows.maxOfOrNull { row -> row.value },
+            avgValue = rows.takeIf { it.isNotEmpty() }?.map { row -> row.value }?.average()?.toFloat(),
+        )
 
         override suspend fun countSamples(): Long = rows.size.toLong()
         override suspend fun oldestTimestampMillis(): Long? = rows.minOfOrNull { it.timestampMillis }

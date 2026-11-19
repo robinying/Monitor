@@ -120,7 +120,8 @@
     <string name="thermal_title">Gerätetemperatur</string>
     <string name="thermal_hottest_zone">Heißeste Zone %1$s</string>
     <string name="usage_title">Vordergrund-App und Datenverkehr</string>
-    <string name="usage_foreground_app">Vordergrund-App</string>
+    <string name="usage_foreground_app">Zuletzt verwendete App</string>
+    <string name="usage_partial_hint">Einige Nutzungsdaten sind nicht verfügbar</string>
     <string name="usage_traffic_value">Down %1$s · Up %2$s</string>
     <string name="usage_permission_missing">Nutzungszugriff nicht erteilt</string>
     <string name="usage_permission_action">Erteilen</string>
@@ -146,6 +147,9 @@
     <string name="diagnostics_never_run">Noch nicht ausgeführt</string>
     <string name="diagnostics_success_rate">%1$s erfolgreich</string>
     <string name="diagnostics_counts">OK %1$d · Fehler %2$d</string>
+    <string name="diagnostics_skipped">Übersprungen: nicht verfügbar</string>
+    <string name="diagnostics_last_failed">Letzter Versuch fehlgeschlagen</string>
+    <string name="diagnostics_counts_with_skipped">OK %1$d · Fehler %2$d · Übersprungen %3$d</string>
     <string name="diagnostics_last_duration">Zuletzt %1$d ms</string>
     <string name="diagnostics_reset">Zurücksetzen</string>
     <string name="diagnostics_error_source">System</string>
@@ -160,7 +164,7 @@
     <string name="collector_app_storage">App-Speicher</string>
     <string name="dashboard_section_live">Live-Status</string>
     <string name="dashboard_cpu_usage_limited">Auslastung systembedingt gesperrt; Kerne und Frequenz angezeigt</string>
-    <string name="csv_header">Zeit,Akku (%),Akkutemp. (℃),CPU (%),Speicher (%),Speicherplatz (%),Gerätetemp. (℃)</string>
+    <string name="csv_header" formatted="false">Zeit,Akku (%),Akkutemp. (℃),CPU (%),Speicher (%),Speicherplatz (%),Gerätetemp. (℃),Bildrate (fps)</string>
     <plurals name="label_cores">
         <item quantity="one">%1$d Kern</item>
         <item quantity="other">%1$d Kerne</item>

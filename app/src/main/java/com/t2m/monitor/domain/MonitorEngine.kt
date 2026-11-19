@@ -54,6 +54,9 @@ class MonitorEngine @Inject constructor(
 
     private val lastValues = mutableMapOf<CollectorId, Any>()
 
+    /** 各指标最近一次成功采样的墙上时间，随快照发布，供告警判定区分新样本。 */
+    private val lastUpdatedAtMillis = mutableMapOf<CollectorId, Long>()
+
     private var samplingJob: Job? = null
 
     /** 串行化启动/停止：旧任务释放后新任务才进入采样循环，避免两轮采集并发。 */
@@ -87,11 +90,13 @@ class MonitorEngine @Inject constructor(
     }
 
     private suspend fun applyResults(results: List<CollectorResult>) {
+        val nowMillis = clock.currentTimeMillis()
         for (result in results) {
             diagnostics.record(result)
             if (result.skipped) {
                 // 能力被撤销（Shizuku/使用情况访问）时清空旧值，避免继续展示过期数据。
                 lastValues.remove(result.id)
+                lastUpdatedAtMillis.remove(result.id)
                 continue
             }
             val error = result.error
@@ -101,9 +106,10 @@ class MonitorEngine @Inject constructor(
             }
             val value = result.value ?: continue
             lastValues[result.id] = value
+            lastUpdatedAtMillis[result.id] = nowMillis
         }
         _snapshot.value = MonitorSnapshot(
-            timestampMillis = clock.currentTimeMillis(),
+            timestampMillis = nowMillis,
             battery = lastValues[CollectorId.BATTERY] as? BatterySnapshot,
             cpu = lastValues[CollectorId.CPU] as? CpuSnapshot,
             memory = lastValues[CollectorId.MEMORY] as? MemorySnapshot,
@@ -113,6 +119,7 @@ class MonitorEngine @Inject constructor(
             fps = lastValues[CollectorId.FPS] as? Float,
             appStorage = (lastValues[CollectorId.APP_STORAGE] as? List<*>)
                 ?.filterIsInstance<AppStorageUsage>(),
+            sampleTimestampsMillis = lastUpdatedAtMillis.toMap(),
         )
     }
 }

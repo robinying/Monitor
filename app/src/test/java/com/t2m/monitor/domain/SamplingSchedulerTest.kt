@@ -47,30 +47,108 @@ class SamplingSchedulerTest {
     }
 
     @Test
-    fun `drops tick when collection exceeds timeout`() = runTest {
-        val hanging = object : Collector<Any> {
-            override val id: CollectorId = CollectorId.CPU
-            override val intervalMillis: Long = 1_000L
+    fun `keeps fast results when a slow collector times out`() = runTest {
+        val fast = FakeCollector(CollectorId.BATTERY, intervalMillis = 1_000L)
+        val slow = object : Collector<Any> {
+            override val id: CollectorId = CollectorId.APP_STORAGE
+            override val intervalMillis: Long = 60_000L
+            override val timeoutMillis: Long = 1_000L
             override suspend fun collect(): Any {
                 delay(10_000L)
                 return Any()
             }
         }
-        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L, tickTimeoutMillis = 500L)
-        var callbacks = 0
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        val byId = mutableMapOf<CollectorId, MutableList<CollectorResult>>()
 
         val job = launch {
             scheduler.run(
-                collectors = listOf(hanging),
+                collectors = listOf(fast, slow),
                 now = { testScheduler.currentTime },
-                onResults = { callbacks++ },
+                onResults = { results ->
+                    results.forEach { result ->
+                        byId.getOrPut(result.id) { mutableListOf() } += result
+                    }
+                },
             )
         }
         advanceTimeBy(2_100L)
         runCurrent()
         job.cancel()
 
-        assertEquals(0, callbacks)
+        val batteryResults = byId[CollectorId.BATTERY].orEmpty()
+        assertTrue("expected repeated fast samples", batteryResults.size >= 2)
+        assertTrue(batteryResults.all { result -> result.error == null && result.value != null })
+        val slowResults = byId[CollectorId.APP_STORAGE].orEmpty()
+        assertTrue(slowResults.isNotEmpty())
+        assertTrue(slowResults.all { result -> result.error is CollectorTimeoutException })
+    }
+
+    @Test
+    fun `publishes skipped results even when another collector times out`() = runTest {
+        val fast = FakeCollector(CollectorId.BATTERY, intervalMillis = 1_000L)
+        val slow = object : Collector<Any> {
+            override val id: CollectorId = CollectorId.APP_STORAGE
+            override val intervalMillis: Long = 60_000L
+            override val timeoutMillis: Long = 1_000L
+            override suspend fun collect(): Any {
+                delay(10_000L)
+                return Any()
+            }
+        }
+        val unavailable = object : Collector<Int> {
+            override val id: CollectorId = CollectorId.USAGE
+            override val intervalMillis: Long = 5_000L
+            override fun isAvailable(): Boolean = false
+            override suspend fun collect(): Int = error("must not run")
+        }
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        val callbacks = mutableListOf<List<CollectorResult>>()
+
+        val job = launch {
+            scheduler.run(
+                collectors = listOf(fast, slow, unavailable),
+                now = { testScheduler.currentTime },
+                onResults = { results -> callbacks += results },
+            )
+        }
+        advanceTimeBy(1_100L)
+        runCurrent()
+        job.cancel()
+
+        val skipped = callbacks.flatten().first { result -> result.id == CollectorId.USAGE }
+        assertTrue(skipped.skipped)
+        assertTrue(callbacks.flatten().any { result -> result.id == CollectorId.BATTERY && result.value != null })
+    }
+
+    @Test
+    fun `does not retry a timed out collector before its interval`() = runTest {
+        val slow = object : Collector<Any> {
+            override val id: CollectorId = CollectorId.APP_STORAGE
+            override val intervalMillis: Long = 5_000L
+            override val timeoutMillis: Long = 1_000L
+            override suspend fun collect(): Any {
+                delay(10_000L)
+                return Any()
+            }
+        }
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        var attempts = 0
+
+        val job = launch {
+            scheduler.run(
+                collectors = listOf(slow),
+                now = { testScheduler.currentTime },
+                onResults = { results ->
+                    attempts += results.count { result -> result.id == CollectorId.APP_STORAGE }
+                },
+            )
+        }
+        advanceTimeBy(6_200L)
+        runCurrent()
+        job.cancel()
+
+        assertEquals(2, attempts)
     }
 
     @Test

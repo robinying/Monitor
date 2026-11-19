@@ -32,6 +32,7 @@ import com.t2m.monitor.R
 import com.t2m.monitor.core.FormatUtils
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.domain.diagnostics.CollectorDiagnostic
+import com.t2m.monitor.domain.diagnostics.CollectorStatus
 import com.t2m.monitor.domain.diagnostics.DiagnosticError
 import com.t2m.monitor.ui.components.MetricCard
 import com.t2m.monitor.ui.components.PillTone
@@ -134,10 +135,23 @@ private fun SectionCard(
 @Composable
 private fun DiagnosticRow(diagnostic: CollectorDiagnostic) {
     val rate = diagnostic.successRatePercent
-    val rateColor = successRateColor(rate)
-    val rateText = rate?.let { value ->
-        stringResource(R.string.diagnostics_success_rate, FormatUtils.formatPercent(value))
-    } ?: stringResource(R.string.diagnostics_never_run)
+    val rateColor = if (diagnostic.lastStatus == CollectorStatus.SKIPPED) {
+        MaterialTheme.colorScheme.outline
+    } else {
+        successRateColor(rate)
+    }
+    val rateText = when (diagnostic.lastStatus) {
+        CollectorStatus.SKIPPED -> stringResource(R.string.diagnostics_skipped)
+        CollectorStatus.FAILURE -> stringResource(R.string.diagnostics_last_failed)
+        CollectorStatus.SUCCESS, null -> rate?.let { value ->
+            stringResource(R.string.diagnostics_success_rate, FormatUtils.formatPercent(value))
+        } ?: stringResource(R.string.diagnostics_never_run)
+    }
+    val rateTone = when (diagnostic.lastStatus) {
+        CollectorStatus.SKIPPED -> PillTone.NEUTRAL
+        CollectorStatus.FAILURE -> PillTone.NEGATIVE
+        CollectorStatus.SUCCESS, null -> successRateTone(rate)
+    }
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -145,18 +159,27 @@ private fun DiagnosticRow(diagnostic: CollectorDiagnostic) {
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            StatusPill(text = rateText, tone = successRateTone(rate))
+            StatusPill(text = rateText, tone = rateTone)
         }
         Spacer(modifier = Modifier.height(6.dp))
         UsageBar(percent = rate, color = rateColor, thickness = 6.dp)
         Spacer(modifier = Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringResource(
-                    R.string.diagnostics_counts,
-                    diagnostic.successCount,
-                    diagnostic.failureCount,
-                ),
+                text = if (diagnostic.skippedCount > 0L) {
+                    stringResource(
+                        R.string.diagnostics_counts_with_skipped,
+                        diagnostic.successCount,
+                        diagnostic.failureCount,
+                        diagnostic.skippedCount,
+                    )
+                } else {
+                    stringResource(
+                        R.string.diagnostics_counts,
+                        diagnostic.successCount,
+                        diagnostic.failureCount,
+                    )
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),

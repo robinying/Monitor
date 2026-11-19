@@ -29,6 +29,10 @@ interface Collector<T : Any> {
     /** 建议采样周期（毫秒）。 */
     val intervalMillis: Long
 
+    /** 单次采集超时预算（毫秒）；慢采集器可覆盖，默认 [DEFAULT_COLLECT_TIMEOUT_MILLIS]。 */
+    val timeoutMillis: Long
+        get() = DEFAULT_COLLECT_TIMEOUT_MILLIS
+
     /**
      * 能力是否可用（如 Shizuku 授权、使用情况访问）。
      *
@@ -55,6 +59,9 @@ data class CollectorResult(
     val durationMillis: Long = 0L,
     val skipped: Boolean = false,
 )
+
+/** 默认单次采集超时预算，适用于电池、CPU、内存等低开销采集器。 */
+const val DEFAULT_COLLECT_TIMEOUT_MILLIS = 500L
 
 /** 采集器集合，供引擎统一调度。 */
 class CollectorRegistry(val collectors: List<Collector<*>>)

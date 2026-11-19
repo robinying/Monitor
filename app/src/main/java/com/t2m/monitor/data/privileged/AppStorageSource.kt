@@ -67,7 +67,8 @@ class AndroidAppStorageSource @Inject constructor(
             AppStorageUsage(
                 packageName = usage.packageName,
                 label = resolveAppLabel(usage.packageName),
-                totalBytes = stats.appBytes + stats.dataBytes + stats.cacheBytes,
+                // dataBytes 已包含 cacheBytes（见 StorageStats#getDataBytes 契约），不可重复相加。
+                totalBytes = stats.appBytes + stats.dataBytes,
             )
         }
         return apps.sortedByDescending { item -> item.totalBytes }.take(limit)

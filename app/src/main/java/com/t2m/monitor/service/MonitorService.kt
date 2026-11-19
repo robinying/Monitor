@@ -122,10 +122,10 @@ class MonitorService : Service() {
     }
 
     override fun onDestroy() {
-        serviceScope.cancel()
         alertMonitor.stop()
         metricRecorder.stop()
         engine.stop()
+        serviceScope.cancel()
         overlayController.release()
         runtime.setSamplingPaused(false)
         runtime.setServiceRunning(false)

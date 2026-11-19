@@ -120,7 +120,8 @@
     <string name="thermal_title">设备温度</string>
     <string name="thermal_hottest_zone">最高温区 %1$s</string>
     <string name="usage_title">前台应用与流量</string>
-    <string name="usage_foreground_app">前台应用</string>
+    <string name="usage_foreground_app">最近使用的应用</string>
+    <string name="usage_partial_hint">部分使用情况数据不可用</string>
     <string name="usage_traffic_value">下行 %1$s · 上行 %2$s</string>
     <string name="usage_permission_missing">未授予使用情况访问权限</string>
     <string name="usage_permission_action">去授权</string>
@@ -146,6 +147,9 @@
     <string name="diagnostics_never_run">尚未运行</string>
     <string name="diagnostics_success_rate">成功率 %1$s</string>
     <string name="diagnostics_counts">成功 %1$d · 失败 %2$d</string>
+    <string name="diagnostics_skipped">已跳过：不可用</string>
+    <string name="diagnostics_last_failed">最近一次失败</string>
+    <string name="diagnostics_counts_with_skipped">成功 %1$d · 失败 %2$d · 跳过 %3$d</string>
     <string name="diagnostics_last_duration">最近耗时 %1$d ms</string>
     <string name="diagnostics_reset">重置统计</string>
     <string name="diagnostics_error_source">系统</string>
@@ -160,7 +164,7 @@
     <string name="collector_app_storage">应用存储</string>
     <string name="dashboard_section_live">实时状态</string>
     <string name="dashboard_cpu_usage_limited">系统限制使用率，仅显示核数与频率</string>
-    <string name="csv_header">时间,电量(%),电池温度(℃),CPU(%),内存(%),存储(%),设备温度(℃)</string>
+    <string name="csv_header" formatted="false">时间,电量(%),电池温度(℃),CPU(%),内存(%),存储(%),设备温度(℃),帧率(fps)</string>
     <plurals name="label_cores">
         <item quantity="other">%1$d 核</item>
     </plurals>

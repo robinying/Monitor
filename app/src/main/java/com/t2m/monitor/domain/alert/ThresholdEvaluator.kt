@@ -1,5 +1,6 @@
 package com.t2m.monitor.domain.alert
 
+import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.model.AlertEvent
 import com.t2m.monitor.data.model.AlertType
 import com.t2m.monitor.data.model.MonitorSnapshot
@@ -22,9 +23,31 @@ class ThresholdEvaluator(
 
     private val consecutiveCounts = mutableMapOf<AlertType, Int>()
 
-    private val lastAlertAtMillis = mutableMapOf<AlertType, Long>()
+    /** 去抖使用单调时钟，系统时间校准不会拉长或缩短冷却窗口。 */
+    private val lastAlertElapsedMillis = mutableMapOf<AlertType, Long>()
 
-    fun evaluate(snapshot: MonitorSnapshot, timestampMillis: Long): List<AlertEvent> {
+    private var lastEvaluateElapsedMillis: Long? = null
+
+    /**
+     * 判定一次快照。
+     *
+     * @param timestampMillis 快照的墙上时间，用于告警事件落库
+     * @param monotonicMillis 单调时钟，仅用于去抖窗口计算
+     */
+    fun evaluate(
+        snapshot: MonitorSnapshot,
+        timestampMillis: Long,
+        monotonicMillis: Long = timestampMillis,
+    ): List<AlertEvent> {
+        // 暂停/停止造成长时间没有新快照时，暂停前后的样本不应连成“连续三次”。
+        val lastElapsed = lastEvaluateElapsedMillis
+        if (lastElapsed != null &&
+            (monotonicMillis - lastElapsed > CONSECUTIVE_RESET_GAP_MILLIS || monotonicMillis < lastElapsed)
+        ) {
+            consecutiveCounts.clear()
+        }
+        lastEvaluateElapsedMillis = monotonicMillis
+
         val events = mutableListOf<AlertEvent>()
 
         evaluateConsecutive(
@@ -33,6 +56,8 @@ class ThresholdEvaluator(
             threshold = BATTERY_TEMPERATURE_THRESHOLD_C,
             trigger = { value -> value >= BATTERY_TEMPERATURE_THRESHOLD_C },
             timestampMillis = timestampMillis,
+            monotonicMillis = monotonicMillis,
+            fresh = isFresh(snapshot, CollectorId.BATTERY, timestampMillis),
             debounceMillis = defaultDebounceMillis,
             events = events,
         )
@@ -42,6 +67,8 @@ class ThresholdEvaluator(
             threshold = MEMORY_USED_PERCENT_THRESHOLD,
             trigger = { value -> value >= MEMORY_USED_PERCENT_THRESHOLD },
             timestampMillis = timestampMillis,
+            monotonicMillis = monotonicMillis,
+            fresh = isFresh(snapshot, CollectorId.MEMORY, timestampMillis),
             debounceMillis = defaultDebounceMillis,
             events = events,
         )
@@ -51,6 +78,8 @@ class ThresholdEvaluator(
             threshold = BATTERY_LOW_PERCENT_THRESHOLD,
             trigger = { value -> value <= BATTERY_LOW_PERCENT_THRESHOLD },
             timestampMillis = timestampMillis,
+            monotonicMillis = monotonicMillis,
+            fresh = isFresh(snapshot, CollectorId.BATTERY, timestampMillis),
             debounceMillis = defaultDebounceMillis,
             events = events,
         )
@@ -60,10 +89,32 @@ class ThresholdEvaluator(
             threshold = STORAGE_LOW_GB_THRESHOLD,
             trigger = { value -> value < STORAGE_LOW_GB_THRESHOLD },
             timestampMillis = timestampMillis,
+            monotonicMillis = monotonicMillis,
+            fresh = isFresh(snapshot, CollectorId.STORAGE, timestampMillis),
             debounceMillis = storageDebounceMillis,
             events = events,
         )
         return events
+    }
+
+    /** 清空连续计数（服务重新启动后必须重新积累新样本），去抖记录保留。 */
+    fun resetConsecutiveCounts() {
+        consecutiveCounts.clear()
+    }
+
+    /**
+     * 只有本轮新采集到的指标才参与判定；引擎保留的旧值不能充当新的连续样本。
+     * 空的时间戳映射（旧数据/测试构造）按“新鲜”处理。
+     */
+    private fun isFresh(
+        snapshot: MonitorSnapshot,
+        collectorId: CollectorId,
+        timestampMillis: Long,
+    ): Boolean {
+        if (snapshot.sampleTimestampsMillis.isEmpty()) {
+            return true
+        }
+        return snapshot.sampleTimestampsMillis[collectorId] == timestampMillis
     }
 
     private fun evaluateConsecutive(
@@ -72,9 +123,14 @@ class ThresholdEvaluator(
         threshold: Float,
         trigger: (Float) -> Boolean,
         timestampMillis: Long,
+        monotonicMillis: Long,
+        fresh: Boolean,
         debounceMillis: Long,
         events: MutableList<AlertEvent>,
     ) {
+        if (!fresh) {
+            return
+        }
         if (value == null) {
             consecutiveCounts.remove(type)
             return
@@ -86,7 +142,7 @@ class ThresholdEvaluator(
         val count = (consecutiveCounts[type] ?: 0) + 1
         consecutiveCounts[type] = count
         if (count >= requiredConsecutiveSamples) {
-            emitIfAllowed(type, timestampMillis, threshold, value, debounceMillis, events)
+            emitIfAllowed(type, timestampMillis, monotonicMillis, threshold, value, debounceMillis, events)
         }
     }
 
@@ -96,28 +152,31 @@ class ThresholdEvaluator(
         threshold: Float,
         trigger: (Float) -> Boolean,
         timestampMillis: Long,
+        monotonicMillis: Long,
+        fresh: Boolean,
         debounceMillis: Long,
         events: MutableList<AlertEvent>,
     ) {
-        if (value == null || !trigger(value)) {
+        if (!fresh || value == null || !trigger(value)) {
             return
         }
-        emitIfAllowed(type, timestampMillis, threshold, value, debounceMillis, events)
+        emitIfAllowed(type, timestampMillis, monotonicMillis, threshold, value, debounceMillis, events)
     }
 
     private fun emitIfAllowed(
         type: AlertType,
         timestampMillis: Long,
+        monotonicMillis: Long,
         threshold: Float,
         actualValue: Float,
         debounceMillis: Long,
         events: MutableList<AlertEvent>,
     ) {
-        val lastAlertAt = lastAlertAtMillis[type]
-        if (lastAlertAt != null && timestampMillis - lastAlertAt < debounceMillis) {
+        val lastAlertElapsed = lastAlertElapsedMillis[type]
+        if (lastAlertElapsed != null && monotonicMillis - lastAlertElapsed < debounceMillis) {
             return
         }
-        lastAlertAtMillis[type] = timestampMillis
+        lastAlertElapsedMillis[type] = monotonicMillis
         events += AlertEvent(
             type = type,
             timestampMillis = timestampMillis,
@@ -128,6 +187,7 @@ class ThresholdEvaluator(
 
     private companion object {
         const val DEFAULT_CONSECUTIVE_SAMPLES = 3
+        const val CONSECUTIVE_RESET_GAP_MILLIS = 10_000L
         const val DEFAULT_DEBOUNCE_MILLIS = 30L * 60 * 1000
         const val STORAGE_DEBOUNCE_MILLIS = 60L * 60 * 1000
 
