@@ -28,12 +28,19 @@ class ShizukuFpsSource @Inject constructor(
 
     private var lastSampleNanos = 0L
 
+    private val timeStatsGate = FpsTimeStatsGate(System::nanoTime)
+
     override fun isAvailable(): Boolean = shell.isGranted()
 
     override fun readFps(): FpsSnapshot? {
         enableTimeStatsIfNeeded()
-        if (timeStatsEnabled) {
-            readTimeStats()?.let { return it }
+        if (timeStatsEnabled && timeStatsGate.canAttempt()) {
+            val snapshot = readTimeStats()
+            if (snapshot != null) {
+                timeStatsGate.onSuccess()
+                return snapshot
+            }
+            timeStatsGate.onFailure()
         }
         return readLatency()
     }
@@ -47,20 +54,23 @@ class ShizukuFpsSource @Inject constructor(
         lastTotalFrames = null
         lastMissedFrames = null
         lastSampleNanos = 0L
+        timeStatsGate.reset()
     }
 
     private fun enableTimeStatsIfNeeded() {
-        if (timeStatsEnabled || !shell.isGranted()) {
+        if (timeStatsEnabled || !shell.isGranted() || !timeStatsGate.canAttempt()) {
             return
         }
         val enabled = shell.exec("dumpsys", "SurfaceFlinger", "--timestats", "-clear", "-enable")
         if (enabled == null) {
+            timeStatsGate.onFailure()
             return
         }
         timeStatsEnabled = true
         lastTotalFrames = null
         lastMissedFrames = null
         lastSampleNanos = System.nanoTime()
+        timeStatsGate.onSuccess()
     }
 
     private fun readTimeStats(): FpsSnapshot? {

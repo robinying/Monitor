@@ -4,6 +4,7 @@ import com.t2m.monitor.data.collector.Collector
 import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorResult
 import com.t2m.monitor.data.collector.MetricStatus
+import com.t2m.monitor.data.collector.MetricValue
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -101,10 +102,17 @@ class SamplingScheduler(
                 status = MetricStatus.TIMEOUT,
             )
         } else {
+            val metric = outcome.value?.let { value -> MetricValue.from(collector.id, value) }
             CollectorResult(
                 id = collector.id,
                 value = outcome.value,
                 durationMillis = durationMillis,
+                status = when {
+                    outcome.value == null -> MetricStatus.EMPTY
+                    metric == null -> MetricStatus.ERROR
+                    else -> MetricStatus.OK
+                },
+                metric = metric,
             )
         }
     }

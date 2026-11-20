@@ -38,6 +38,7 @@
         android:background="@drawable/bg_overlay_divider" />
 
     <LinearLayout
+        android:id="@+id/panelRowBatteryTemp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
@@ -45,6 +46,7 @@
         android:orientation="horizontal">
 
         <LinearLayout
+            android:id="@+id/panelBatteryGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -68,6 +70,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelTemperatureGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -92,6 +95,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/panelRowCpuMemory"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
@@ -99,6 +103,7 @@
         android:orientation="horizontal">
 
         <LinearLayout
+            android:id="@+id/panelCpuGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -122,6 +127,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelMemoryGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -146,6 +152,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/panelRowStorageVoltage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
@@ -153,6 +160,7 @@
         android:orientation="horizontal">
 
         <LinearLayout
+            android:id="@+id/panelStorageGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -176,6 +184,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelVoltageGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -200,6 +209,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/panelRowCurrentFreq"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
@@ -207,6 +217,7 @@
         android:orientation="horizontal">
 
         <LinearLayout
+            android:id="@+id/panelCurrentGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -230,6 +241,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelMaxFrequencyGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -254,6 +266,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/panelRowFps"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
@@ -261,6 +274,7 @@
         android:orientation="horizontal">
 
         <LinearLayout
+            android:id="@+id/panelFpsGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -284,6 +298,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelJankGroup"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

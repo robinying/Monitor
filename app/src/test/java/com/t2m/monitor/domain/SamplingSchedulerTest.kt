@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -176,6 +177,31 @@ class SamplingSchedulerTest {
         job.cancel()
 
         assertEquals(MetricStatus.EMPTY, captured?.status)
+    }
+
+    @Test
+    fun `marks an unsupported successful value as an error`() = runTest {
+        val wrongType = object : Collector<Any> {
+            override val id: CollectorId = CollectorId.BATTERY
+            override val intervalMillis: Long = 1_000L
+            override suspend fun collect(): Any = "not a battery snapshot"
+        }
+        val scheduler = SamplingScheduler(tickIntervalMillis = 1_000L)
+        var captured: CollectorResult? = null
+
+        val job = launch {
+            scheduler.run(
+                collectors = listOf(wrongType),
+                now = { testScheduler.currentTime },
+                onResults = { results -> captured = results.single() },
+            )
+        }
+        advanceTimeBy(100L)
+        runCurrent()
+        job.cancel()
+
+        assertEquals(MetricStatus.ERROR, captured?.status)
+        assertNull(captured?.metric)
     }
 
     @Test

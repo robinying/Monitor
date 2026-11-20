@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import androidx.core.view.isVisible
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -20,7 +21,6 @@ import com.t2m.monitor.core.FormatUtils
 import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.core.MonitorRuntime
 import com.t2m.monitor.data.model.MonitorSnapshot
-import com.t2m.monitor.data.model.OverlayMetric
 import com.t2m.monitor.data.model.OverlayMode
 import com.t2m.monitor.data.prefs.MonitorPreferences
 import com.t2m.monitor.data.prefs.OverlaySettings
@@ -118,11 +118,7 @@ class OverlayController @Inject constructor(
         showRequested = false
         scope.launch(Dispatchers.Main.immediate) {
             detach()
-            scope.launch(Dispatchers.IO) {
-                if (!preferences.setOverlayEnabled(false)) {
-                    logger.warn("persist overlay disabled failed")
-                }
-            }
+            scope.launch(Dispatchers.IO) { preferences.setOverlayEnabled(false) }
         }
     }
 
@@ -213,11 +209,7 @@ class OverlayController @Inject constructor(
         startSnapshotUpdates()
         startSettingsUpdates()
         runtime.setOverlayVisible(true)
-        scope.launch(Dispatchers.IO) {
-            if (!preferences.setOverlayEnabled(true)) {
-                logger.warn("persist overlay enabled failed")
-            }
-        }
+        scope.launch(Dispatchers.IO) { preferences.setOverlayEnabled(true) }
     }
 
     private fun detach() {
@@ -288,11 +280,7 @@ class OverlayController @Inject constructor(
         root.post { clampAndUpdate(persist = false) }
         render(engine.snapshot.value)
         if (persist) {
-            scope.launch(Dispatchers.IO) {
-                if (!preferences.setOverlayMode(target)) {
-                    logger.warn("persist overlay mode failed")
-                }
-            }
+            scope.launch(Dispatchers.IO) { preferences.setOverlayMode(target) }
         }
     }
 
@@ -331,38 +319,28 @@ class OverlayController @Inject constructor(
             binding.miniCpu.text = FormatUtils.formatPercent(snapshot.cpu?.totalUsagePercent)
             binding.miniMemory.text = FormatUtils.formatPercent(snapshot.memory?.usedPercent)
         }
-        val settings = overlaySettings
-        val showBattery = settings.isVisible(OverlayMetric.BATTERY)
-        val showTemperature = settings.isVisible(OverlayMetric.TEMPERATURE)
-        val showCpu = settings.isVisible(OverlayMetric.CPU)
-        val showMemory = settings.isVisible(OverlayMetric.MEMORY)
-        val showStorage = settings.isVisible(OverlayMetric.STORAGE)
-        val showFps = settings.isVisible(OverlayMetric.FPS) && snapshot.fps != null
+        val visibility = overlayVisibility(overlaySettings, snapshot.fps != null)
 
         bubbleBinding?.let { binding ->
-            binding.bubbleValue.text = if (showBattery) {
+            binding.bubbleValue.text = if (visibility.showBattery) {
                 percentText
             } else {
                 context.getString(R.string.value_placeholder)
             }
-            binding.bubbleValue.visibility = if (showBattery || !showTemperature) {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
-            binding.bubbleTemperature.visibility = if (showTemperature) View.VISIBLE else View.GONE
+            binding.bubbleValue.isVisible = visibility.showBattery || !visibility.showTemperature
+            binding.bubbleTemperature.isVisible = visibility.showTemperature
         }
         miniBarBinding?.let { binding ->
-            setGroupVisible(binding.miniBattery, showBattery)
-            setGroupVisible(binding.miniTemperature, showTemperature)
-            setGroupVisible(binding.miniCpu, showCpu)
-            setGroupVisible(binding.miniMemory, showMemory)
-            binding.miniDivider1.visibility =
-                if (showBattery && showTemperature) View.VISIBLE else View.GONE
-            binding.miniDivider2.visibility =
-                if (showTemperature && showCpu) View.VISIBLE else View.GONE
-            binding.miniDivider3.visibility =
-                if (showCpu && showMemory) View.VISIBLE else View.GONE
+            binding.miniBatteryGroup.isVisible = visibility.showBattery
+            binding.miniTemperatureGroup.isVisible = visibility.showTemperature
+            binding.miniCpuGroup.isVisible = visibility.showCpu
+            binding.miniMemoryGroup.isVisible = visibility.showMemory
+            binding.miniDivider1.isVisible =
+                visibility.showBattery && visibility.showTemperature
+            binding.miniDivider2.isVisible =
+                visibility.showTemperature && visibility.showCpu
+            binding.miniDivider3.isVisible =
+                visibility.showCpu && visibility.showMemory
         }
         panelBinding?.let { binding ->
             binding.panelBattery.text = percentText
@@ -377,44 +355,27 @@ class OverlayController @Inject constructor(
             binding.panelJank.text = FormatUtils.formatPercent(snapshot.fps?.jankPercent)
             binding.panelUpdated.text = FormatUtils.formatTimeOfDay(snapshot.timestampMillis)
 
-            setGroupVisible(binding.panelBattery, showBattery)
-            setGroupVisible(binding.panelTemperature, showTemperature)
-            setGroupVisible(binding.panelCpu, showCpu)
-            setGroupVisible(binding.panelMemory, showMemory)
-            setGroupVisible(binding.panelStorage, showStorage)
-            setGroupVisible(binding.panelVoltage, showBattery)
-            setGroupVisible(binding.panelCurrent, showBattery)
-            setGroupVisible(binding.panelMaxFrequency, showCpu)
-            setGroupVisible(binding.panelFps, showFps)
-            setGroupVisible(binding.panelJank, showFps)
-            setRowVisible(binding.panelBattery, binding.panelTemperature)
-            setRowVisible(binding.panelCpu, binding.panelMemory)
-            setRowVisible(binding.panelStorage, binding.panelVoltage)
-            setRowVisible(binding.panelCurrent, binding.panelMaxFrequency)
-            setRowVisible(binding.panelFps, binding.panelJank)
+            binding.panelBatteryGroup.isVisible = visibility.showBattery
+            binding.panelTemperatureGroup.isVisible = visibility.showTemperature
+            binding.panelCpuGroup.isVisible = visibility.showCpu
+            binding.panelMemoryGroup.isVisible = visibility.showMemory
+            binding.panelStorageGroup.isVisible = visibility.showStorage
+            binding.panelVoltageGroup.isVisible = visibility.showBattery
+            binding.panelCurrentGroup.isVisible = visibility.showBattery
+            binding.panelMaxFrequencyGroup.isVisible = visibility.showCpu
+            binding.panelFpsGroup.isVisible = visibility.showFps
+            binding.panelJankGroup.isVisible = visibility.showFps
+            binding.panelRowBatteryTemp.isVisible = visibility.showBatteryTemperatureRow
+            binding.panelRowCpuMemory.isVisible = visibility.showCpuMemoryRow
+            binding.panelRowStorageVoltage.isVisible = visibility.showStorageVoltageRow
+            binding.panelRowCurrentFreq.isVisible = visibility.showCurrentFrequencyRow
+            binding.panelRowFps.isVisible = visibility.showFpsRow
         }
         container?.contentDescription = context.getString(
             R.string.overlay_content_description,
             percentText,
             temperatureText,
         )
-    }
-
-    private fun setGroupVisible(value: View, visible: Boolean) {
-        (value.parent as? View)?.visibility = if (visible) View.VISIBLE else View.GONE
-    }
-
-    private fun setRowVisible(first: View, second: View) {
-        val firstGroup = first.parent as? View ?: return
-        val secondGroup = second.parent as? View ?: return
-        val row = firstGroup.parent as? View
-        row?.visibility = if (firstGroup.visibility == View.VISIBLE ||
-            secondGroup.visibility == View.VISIBLE
-        ) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
     }
 
     /** 长按菜单直接作为悬浮窗内容展示，避免用 PopupWindow 依赖窗口 token。 */
@@ -483,11 +444,7 @@ class OverlayController @Inject constructor(
     }
 
     private fun persistPosition(x: Int, y: Int) {
-        scope.launch(Dispatchers.IO) {
-            if (!preferences.setOverlayPosition(x, y)) {
-                logger.warn("persist overlay position failed")
-            }
-        }
+        scope.launch(Dispatchers.IO) { preferences.setOverlayPosition(x, y) }
     }
 
     /** 计算可放置悬浮窗的安全区域（避开状态栏、导航栏与挖孔）。 */

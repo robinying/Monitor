@@ -67,6 +67,7 @@ enum class MetricStatus {
  * @param durationMillis 本次采集耗时（毫秒）。
  * @param skipped 能力不可用（未授权/未安装）导致本轮跳过，不计为失败。
  * @param status 最近一次读取状态；未显式指定时由 skipped/error/value 推导。
+ * @param metric 类型化的采集结果；由调度器根据 id 和 value 生成。
  */
 data class CollectorResult(
     val id: CollectorId,
@@ -80,6 +81,7 @@ data class CollectorResult(
         value == null -> MetricStatus.EMPTY
         else -> MetricStatus.OK
     },
+    val metric: MetricValue? = null,
 )
 
 /** 默认单次采集超时预算，适用于电池、CPU、内存等低开销采集器。 */

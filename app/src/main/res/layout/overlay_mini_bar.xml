@@ -10,6 +10,7 @@
     android:paddingVertical="8dp">
 
     <LinearLayout
+        android:id="@+id/miniBatteryGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
@@ -40,6 +41,7 @@
         android:background="@drawable/bg_overlay_divider" />
 
     <LinearLayout
+        android:id="@+id/miniTemperatureGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
@@ -70,6 +72,7 @@
         android:background="@drawable/bg_overlay_divider" />
 
     <LinearLayout
+        android:id="@+id/miniCpuGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
@@ -100,6 +103,7 @@
         android:background="@drawable/bg_overlay_divider" />
 
     <LinearLayout
+        android:id="@+id/miniMemoryGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"

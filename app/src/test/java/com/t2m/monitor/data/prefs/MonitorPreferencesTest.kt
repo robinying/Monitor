@@ -29,11 +29,11 @@ class MonitorPreferencesTest {
         val preferences = MonitorPreferences(InMemoryDataStore(), logger)
 
         assertFalse(preferences.overlayEnabled.first())
-        assertTrue(preferences.setOverlayEnabled(true))
-        assertTrue(preferences.setOverlayMode(OverlayMode.PANEL))
-        assertTrue(preferences.setOverlayPosition(12, 34))
-        assertTrue(preferences.setOverlayOpacity(65))
-        assertTrue(preferences.setOverlayMetricVisible(OverlayMetric.FPS, false))
+        preferences.setOverlayEnabled(true)
+        preferences.setOverlayMode(OverlayMode.PANEL)
+        preferences.setOverlayPosition(12, 34)
+        preferences.setOverlayOpacity(65)
+        preferences.setOverlayMetricVisible(OverlayMetric.FPS, false)
 
         val settings = preferences.readOverlaySettings()
         assertTrue(preferences.overlayEnabled.first())
@@ -64,12 +64,12 @@ class MonitorPreferencesTest {
     }
 
     @Test
-    fun `returns false when datastore write fails`() = runTest {
+    fun `logs write failures without throwing`() = runTest {
         val preferences = MonitorPreferences(FailingDataStore(), logger)
-        assertFalse(preferences.setOverlayEnabled(true))
-        assertFalse(preferences.setGuideSeen(true))
-        assertFalse(preferences.setOverlayOpacity(50))
-        assertFalse(preferences.setOverlayMetricVisible(OverlayMetric.CPU, false))
+        preferences.setOverlayEnabled(true)
+        preferences.setGuideSeen(true)
+        preferences.setOverlayOpacity(50)
+        preferences.setOverlayMetricVisible(OverlayMetric.CPU, false)
         assertTrue(logger.messages.isNotEmpty())
     }
 

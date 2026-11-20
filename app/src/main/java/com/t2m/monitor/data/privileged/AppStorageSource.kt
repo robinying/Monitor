@@ -30,6 +30,9 @@ class AndroidAppStorageSource @Inject constructor(
     private val logger: MonitorLogger,
 ) : AppStorageSource {
 
+    @Volatile
+    private var failureLogged = false
+
     override fun isAvailable(): Boolean = permissionChecker.hasUsageStatsPermission()
 
     override fun readTopApps(limit: Int): List<AppStorageUsage>? {
@@ -56,22 +59,26 @@ class AndroidAppStorageSource @Inject constructor(
         }
 
         val userHandle = Process.myUserHandle()
-        val apps = candidates.mapNotNull { usage ->
-            val stats = runCatching {
-                storageStatsManager.queryStatsForPackage(
+        return buildAppStorageList(
+            packageNames = candidates.map { stats -> stats.packageName },
+            limit = limit,
+            queryBytes = { packageName ->
+                val stats = storageStatsManager.queryStatsForPackage(
                     StorageManager.UUID_DEFAULT,
-                    usage.packageName,
+                    packageName,
                     userHandle,
                 )
-            }.getOrNull() ?: return@mapNotNull null
-            AppStorageUsage(
-                packageName = usage.packageName,
-                label = resolveAppLabel(usage.packageName),
                 // dataBytes 已包含 cacheBytes（见 StorageStats#getDataBytes 契约），不可重复相加。
-                totalBytes = stats.appBytes + stats.dataBytes,
-            )
-        }
-        return apps.sortedByDescending { item -> item.totalBytes }.take(limit)
+                stats.appBytes to stats.dataBytes
+            },
+            label = ::resolveAppLabel,
+            onFailure = { packageName, error ->
+                if (!failureLogged) {
+                    logger.warn("query app storage failed: $packageName", error)
+                    failureLogged = true
+                }
+            },
+        )
     }
 
     private fun resolveAppLabel(packageName: String): String? = runCatching {
@@ -84,4 +91,35 @@ class AndroidAppStorageSource @Inject constructor(
         const val CANDIDATE_WINDOW_MILLIS = 24L * 60 * 60 * 1000
         const val MAX_CANDIDATES = 15
     }
+}
+
+/**
+ * 聚合应用存储查询结果。
+ *
+ * 单个包失败不丢弃整个列表，但全部失败时返回 null，让采集器记为失败而不是“成功但无数据”。
+ */
+internal fun buildAppStorageList(
+    packageNames: List<String>,
+    limit: Int,
+    queryBytes: (String) -> Pair<Long, Long>?,
+    label: (String) -> String?,
+    onFailure: (String, Exception) -> Unit,
+): List<AppStorageUsage>? {
+    val apps = packageNames.mapNotNull { packageName ->
+        try {
+            val bytes = queryBytes(packageName) ?: return@mapNotNull null
+            AppStorageUsage(
+                packageName = packageName,
+                label = label(packageName),
+                totalBytes = bytes.first + bytes.second,
+            )
+        } catch (error: Exception) {
+            onFailure(packageName, error)
+            null
+        }
+    }
+    if (apps.isEmpty() && packageNames.isNotEmpty()) {
+        return null
+    }
+    return apps.sortedByDescending { item -> item.totalBytes }.take(limit)
 }

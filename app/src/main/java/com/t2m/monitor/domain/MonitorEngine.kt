@@ -6,6 +6,7 @@ import com.t2m.monitor.data.collector.CollectorId
 import com.t2m.monitor.data.collector.CollectorRegistry
 import com.t2m.monitor.data.collector.CollectorResult
 import com.t2m.monitor.data.collector.MetricStatus
+import com.t2m.monitor.data.collector.MetricValue
 import com.t2m.monitor.data.model.BatterySnapshot
 import com.t2m.monitor.data.model.FpsSnapshot
 import com.t2m.monitor.data.model.CpuSnapshot
@@ -54,7 +55,21 @@ class MonitorEngine @Inject constructor(
     /** 采样是否运行中。 */
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
-    private val lastValues = mutableMapOf<CollectorId, Any>()
+    private var battery: BatterySnapshot? = null
+
+    private var cpu: CpuSnapshot? = null
+
+    private var memory: MemorySnapshot? = null
+
+    private var storage: StorageSnapshot? = null
+
+    private var thermal: ThermalSnapshot? = null
+
+    private var usage: UsageSnapshot? = null
+
+    private var fps: FpsSnapshot? = null
+
+    private var appStorage: List<AppStorageUsage>? = null
 
     /** 各指标最近一次成功采样的墙上时间，随快照发布，供告警判定区分新样本。 */
     private val lastUpdatedAtMillis = mutableMapOf<CollectorId, Long>()
@@ -101,7 +116,7 @@ class MonitorEngine @Inject constructor(
             metricStatuses[result.id] = result.status
             if (result.skipped) {
                 // 能力被撤销（Shizuku/使用情况访问）时清空旧值，避免继续展示过期数据。
-                lastValues.remove(result.id)
+                clearMetric(result.id)
                 lastUpdatedAtMillis.remove(result.id)
                 continue
             }
@@ -110,23 +125,54 @@ class MonitorEngine @Inject constructor(
                 logger.warn("collector ${result.id} failed", error)
                 continue
             }
-            val value = result.value ?: continue
-            lastValues[result.id] = value
+            val metric = result.metric
+            if (metric == null) {
+                if (result.value != null) {
+                    logger.warn("collector ${result.id} returned unsupported value")
+                }
+                continue
+            }
+            applyMetric(metric)
             lastUpdatedAtMillis[result.id] = nowMillis
         }
         _snapshot.value = MonitorSnapshot(
             timestampMillis = nowMillis,
-            battery = lastValues[CollectorId.BATTERY] as? BatterySnapshot,
-            cpu = lastValues[CollectorId.CPU] as? CpuSnapshot,
-            memory = lastValues[CollectorId.MEMORY] as? MemorySnapshot,
-            storage = lastValues[CollectorId.STORAGE] as? StorageSnapshot,
-            thermal = lastValues[CollectorId.THERMAL] as? ThermalSnapshot,
-            usage = lastValues[CollectorId.USAGE] as? UsageSnapshot,
-            fps = lastValues[CollectorId.FPS] as? FpsSnapshot,
-            appStorage = (lastValues[CollectorId.APP_STORAGE] as? List<*>)
-                ?.filterIsInstance<AppStorageUsage>(),
+            battery = battery,
+            cpu = cpu,
+            memory = memory,
+            storage = storage,
+            thermal = thermal,
+            usage = usage,
+            fps = fps,
+            appStorage = appStorage,
             sampleTimestampsMillis = lastUpdatedAtMillis.toMap(),
             metricStatuses = metricStatuses.toMap(),
         )
+    }
+
+    private fun applyMetric(metric: MetricValue) {
+        when (metric) {
+            is MetricValue.Battery -> battery = metric.value
+            is MetricValue.Cpu -> cpu = metric.value
+            is MetricValue.Memory -> memory = metric.value
+            is MetricValue.Storage -> storage = metric.value
+            is MetricValue.Thermal -> thermal = metric.value
+            is MetricValue.Usage -> usage = metric.value
+            is MetricValue.Fps -> fps = metric.value
+            is MetricValue.AppStorage -> appStorage = metric.value
+        }
+    }
+
+    private fun clearMetric(id: CollectorId) {
+        when (id) {
+            CollectorId.BATTERY -> battery = null
+            CollectorId.CPU -> cpu = null
+            CollectorId.MEMORY -> memory = null
+            CollectorId.STORAGE -> storage = null
+            CollectorId.THERMAL -> thermal = null
+            CollectorId.USAGE -> usage = null
+            CollectorId.FPS -> fps = null
+            CollectorId.APP_STORAGE -> appStorage = null
+        }
     }
 }

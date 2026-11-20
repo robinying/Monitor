@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.map
 /**
  * 悬浮窗位置与用户偏好持久化。
  *
- * 所有写操作返回是否成功，失败由调用方记录日志；不吞掉异常也不抛出到界面。
+ * 读取失败回退默认值；写入失败在本类记录日志，不把异常抛到界面。
  */
 @Singleton
 class MonitorPreferences @Inject constructor(
@@ -30,42 +30,25 @@ class MonitorPreferences @Inject constructor(
     private val logger: MonitorLogger,
 ) {
 
-    /** 用户是否希望显示悬浮窗（服务启动时据此自动恢复）。 */
-    val overlayEnabled: Flow<Boolean> = dataStore.data
+    private val preferences: Flow<Preferences> = dataStore.data
         .catch { error ->
-            logger.warn("read overlay settings failed", error)
+            logger.warn("read monitor preferences failed", error)
             emit(emptyPreferences())
         }
-        .map { preferences -> preferences[KEY_OVERLAY_ENABLED] ?: false }
+
+    /** 用户是否希望显示悬浮窗（服务启动时据此自动恢复）。 */
+    val overlayEnabled: Flow<Boolean> = preferences
+        .map { values -> values[KEY_OVERLAY_ENABLED] ?: false }
 
     /** 权限引导是否已读，用于首次启动自动跳转。 */
-    val guideSeen: Flow<Boolean> = dataStore.data
-        .catch { error ->
-            logger.warn("read guide state failed", error)
-            emit(emptyPreferences())
-        }
-        .map { preferences -> preferences[KEY_GUIDE_SEEN] ?: false }
+    val guideSeen: Flow<Boolean> = preferences
+        .map { values -> values[KEY_GUIDE_SEEN] ?: false }
 
     /** 悬浮窗样式与指标可见性；设置页与悬浮窗共用。 */
-    val overlaySettings: Flow<OverlaySettings> = dataStore.data
-        .catch { error ->
-            logger.warn("read overlay settings failed", error)
-            emit(emptyPreferences())
-        }
-        .map(::toOverlaySettings)
+    val overlaySettings: Flow<OverlaySettings> = preferences.map(::toOverlaySettings)
 
     /** 一次性读取悬浮窗初始状态，供 attach 时使用。 */
-    suspend fun readOverlaySettings(): OverlaySettings {
-        val preferences = try {
-            dataStore.data.first()
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (error: Exception) {
-            logger.warn("read overlay settings failed", error)
-            emptyPreferences()
-        }
-        return toOverlaySettings(preferences)
-    }
+    suspend fun readOverlaySettings(): OverlaySettings = toOverlaySettings(preferences.first())
 
     private fun toOverlaySettings(preferences: Preferences): OverlaySettings {
         val storedMode = preferences[KEY_OVERLAY_MODE]
@@ -83,29 +66,29 @@ class MonitorPreferences @Inject constructor(
         )
     }
 
-    suspend fun setOverlayEnabled(enabled: Boolean): Boolean = update {
+    suspend fun setOverlayEnabled(enabled: Boolean) = update {
         it[KEY_OVERLAY_ENABLED] = enabled
     }
 
-    suspend fun setOverlayMode(mode: OverlayMode): Boolean = update {
+    suspend fun setOverlayMode(mode: OverlayMode) = update {
         it[KEY_OVERLAY_MODE] = mode.name
     }
 
-    suspend fun setOverlayPosition(x: Int, y: Int): Boolean = update {
+    suspend fun setOverlayPosition(x: Int, y: Int) = update {
         it[KEY_OVERLAY_X] = x
         it[KEY_OVERLAY_Y] = y
     }
 
-    suspend fun resetOverlayPosition(): Boolean = update {
+    suspend fun resetOverlayPosition() = update {
         it.remove(KEY_OVERLAY_X)
         it.remove(KEY_OVERLAY_Y)
     }
 
-    suspend fun setOverlayOpacity(percent: Int): Boolean = update {
-        it[KEY_OVERLAY_OPACITY] = percent.coerceIn(OverlaySettings.MIN_OPACITY_PERCENT, 100)
+    suspend fun setOverlayOpacity(percent: Int) = update {
+        it[KEY_OVERLAY_OPACITY] = percent
     }
 
-    suspend fun setOverlayMetricVisible(metric: OverlayMetric, visible: Boolean): Boolean = update {
+    suspend fun setOverlayMetricVisible(metric: OverlayMetric, visible: Boolean) = update {
         it[metric.preferenceKey()] = visible
     }
 
@@ -118,21 +101,20 @@ class MonitorPreferences @Inject constructor(
         OverlayMetric.FPS -> KEY_OVERLAY_FPS
     }
 
-    suspend fun setGuideSeen(seen: Boolean): Boolean = update {
+    suspend fun setGuideSeen(seen: Boolean) = update {
         it[KEY_GUIDE_SEEN] = seen
     }
 
-    private suspend fun update(block: suspend (MutablePreferences) -> Unit): Boolean =
+    private suspend fun update(block: suspend (MutablePreferences) -> Unit) {
         try {
             dataStore.edit(block)
-            true
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Exception) {
-            // DataStore 写入失败不影响运行时功能，这里记录后由调用方决定是否提示。
+            // DataStore 写入失败不影响运行时功能，记录日志即可。
             logger.warn("write monitor preferences failed", error)
-            false
         }
+    }
 
     private companion object {
         val KEY_OVERLAY_ENABLED = booleanPreferencesKey("overlay_enabled")

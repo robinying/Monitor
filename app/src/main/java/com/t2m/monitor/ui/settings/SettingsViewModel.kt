@@ -2,7 +2,6 @@ package com.t2m.monitor.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.t2m.monitor.core.MonitorLogger
 import com.t2m.monitor.data.model.OverlayMetric
 import com.t2m.monitor.data.model.OverlayMode
 import com.t2m.monitor.data.prefs.MonitorPreferences
@@ -20,7 +19,6 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferences: MonitorPreferences,
-    private val logger: MonitorLogger,
 ) : ViewModel() {
 
     val settings: StateFlow<OverlaySettings> = preferences.overlaySettings.stateIn(
@@ -34,35 +32,19 @@ class SettingsViewModel @Inject constructor(
     )
 
     fun setMode(mode: OverlayMode) {
-        viewModelScope.launch {
-            if (!preferences.setOverlayMode(mode)) {
-                logger.warn("persist overlay mode failed")
-            }
-        }
+        viewModelScope.launch { preferences.setOverlayMode(mode) }
     }
 
     fun setOpacity(percent: Int) {
-        viewModelScope.launch {
-            if (!preferences.setOverlayOpacity(percent)) {
-                logger.warn("persist overlay opacity failed")
-            }
-        }
+        viewModelScope.launch { preferences.setOverlayOpacity(percent) }
     }
 
     fun setMetricVisible(metric: OverlayMetric, visible: Boolean) {
-        viewModelScope.launch {
-            if (!preferences.setOverlayMetricVisible(metric, visible)) {
-                logger.warn("persist overlay metric visibility failed")
-            }
-        }
+        viewModelScope.launch { preferences.setOverlayMetricVisible(metric, visible) }
     }
 
     fun resetPosition() {
-        viewModelScope.launch {
-            if (!preferences.resetOverlayPosition()) {
-                logger.warn("reset overlay position failed")
-            }
-        }
+        viewModelScope.launch { preferences.resetOverlayPosition() }
     }
 
     private companion object {

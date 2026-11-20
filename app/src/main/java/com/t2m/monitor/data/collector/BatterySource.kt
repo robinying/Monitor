@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
+import android.os.SystemClock
 import com.t2m.monitor.core.MonitorLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -45,6 +46,11 @@ class AndroidBatterySource @Inject constructor(
     @Volatile
     private var sysfsFailureLogged = false
 
+    private val sysfs = BatterySysfsReader(
+        readLong = ::readLongFile,
+        elapsedMillis = SystemClock::elapsedRealtime,
+    )
+
     override fun read(): BatteryReading? {
         val intent: Intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             ?: return null
@@ -67,7 +73,7 @@ class AndroidBatterySource @Inject constructor(
             technology = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)
                 ?.takeIf { value -> value.isNotBlank() },
             cycleCount = readCycleCount(intent),
-            designCapacityMah = readDesignCapacityMah(),
+            designCapacityMah = sysfs.designCapacityMah(),
         )
     }
 
@@ -78,17 +84,8 @@ class AndroidBatterySource @Inject constructor(
                 .takeIf { value -> value != INVALID_VALUE }
                 ?.let { return it }
         }
-        return readIntFile("/sys/class/power_supply/battery/cycle_count")
+        return sysfs.cycleCount()
     }
-
-    private fun readDesignCapacityMah(): Int? {
-        val microAmpHours = readLongFile("/sys/class/power_supply/battery/charge_full_design")
-            ?: readLongFile("/sys/class/power_supply/battery/charge_full")
-            ?: return null
-        return (microAmpHours / 1000L).toInt().takeIf { value -> value > 0 }
-    }
-
-    private fun readIntFile(path: String): Int? = readLongFile(path)?.toInt()?.takeIf { it > 0 }
 
     private fun readLongFile(path: String): Long? = try {
         File(path).readText().trim().toLongOrNull()

@@ -1,5 +1,6 @@
 package com.t2m.monitor.data.collector
 
+import android.os.SystemClock
 import com.t2m.monitor.core.MonitorLogger
 import java.io.File
 import javax.inject.Inject
@@ -25,6 +26,14 @@ class AndroidCpuStatSource @Inject constructor(
     @Volatile
     private var statFailureLogged = false
 
+    @Volatile
+    private var frequencyFailureLogged = false
+
+    private val frequencyReader = CpuFrequencyFileReader(
+        readInt = ::readFrequencyFile,
+        elapsedMillis = SystemClock::elapsedRealtime,
+    )
+
     override fun readStatLines(): List<String>? = try {
         val lines = File(PROC_STAT_PATH).useLines { fileLines ->
             fileLines.takeWhile { it.startsWith(CPU_LINE_PREFIX) }.toList()
@@ -40,14 +49,20 @@ class AndroidCpuStatSource @Inject constructor(
     }
 
     override fun readFrequencyKHz(coreIndex: Int): Int? =
-        readIntFromFile(coreFrequencyPath(coreIndex, CURRENT_FREQUENCY_FILE))
+        frequencyReader.read(coreFrequencyPath(coreIndex, CURRENT_FREQUENCY_FILE))
 
     override fun readMaxFrequencyKHz(coreIndex: Int): Int? =
-        readIntFromFile(coreFrequencyPath(coreIndex, MAX_FREQUENCY_FILE))
+        frequencyReader.read(coreFrequencyPath(coreIndex, MAX_FREQUENCY_FILE))
 
-    private fun readIntFromFile(path: String): Int? = runCatching {
+    private fun readFrequencyFile(path: String): Int? = try {
         File(path).readText().trim().toInt()
-    }.getOrNull()
+    } catch (error: Exception) {
+        if (!frequencyFailureLogged) {
+            logger.warn("read cpu frequency failed: $path", error)
+            frequencyFailureLogged = true
+        }
+        null
+    }
 
     private fun coreFrequencyPath(coreIndex: Int, fileName: String): String =
         "$CPU_FREQUENCY_DIR/cpu$coreIndex/cpufreq/$fileName"
