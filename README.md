@@ -10,7 +10,7 @@ Android 手机状态监控应用：实时采集设备指标，通过三态悬浮
 | 悬浮窗 | 悬浮球 / 迷你条 / 面板三态，拖拽吸边、位置与形态持久化、长按菜单 |
 | 常驻监控 | 前台服务（`specialUse`）+ 常驻通知，支持显示/隐藏悬浮窗、暂停采样、退出 |
 | 历史数据 | Room 本地库，10 秒聚合写入，1h/6h/24h/7d 曲线，保留 7 天原始样本 + 90 天小时聚合 |
-| 导出 | 五列指标 CSV（UTF-8 BOM），写入系统下载目录并可分享 |
+| 导出 | 11 列指标 CSV（UTF-8 BOM），写入系统下载目录并可分享 |
 | 告警 | 电池温度/电量/内存/存储阈值，连续采样与去抖，通知 + 历史列表 |
 | 特权扩展 | 安装并授权 Shizuku 后可读取系统帧率；未安装时相关功能自动隐藏 |
 | 诊断 | 采集器成功率、最近耗时、错误环形缓冲（仅本次运行） |
@@ -25,7 +25,7 @@ Android 手机状态监控应用：实时采集设备指标，通过三态悬浮
 - Gradle Wrapper 8.13，AGP 8.13.2，Kotlin 2.2.21
 
 ```bash
-./gradlew assembleDebug        # 调试包（包名 com.t2m.monitor.debug）
+./gradlew assembleDebug        # 调试包（包名 com.robin.monitor.debug）
 ./gradlew testDebugUnitTest    # 单元测试
 ./gradlew lintDebug            # 静态检查
 ./gradlew assembleRelease      # R8 压缩后的 release 包（默认未签名）
@@ -48,7 +48,7 @@ MONITOR_KEY_PASSWORD=******
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell appops set com.t2m.monitor.debug SYSTEM_ALERT_WINDOW allow
+adb shell appops set com.robin.monitor.debug SYSTEM_ALERT_WINDOW allow
 ```
 
 | 权限 | 用途 | 缺失时行为 |
@@ -66,7 +66,7 @@ Kotlin 2.2.21 · Jetpack Compose（Material3）· Hilt · Room · DataStore · W
 架构：采集器（`Collector`）→ 采样调度 → `MonitorEngine` 合并快照 → 前台服务持有生命周期 → 界面/悬浮窗订阅；Room 负责历史，WorkManager 负责保留策略。
 
 ```
-app/src/main/java/com/t2m/monitor/
+app/src/main/java/com/robin/monitor/
 ├── core/        时钟、日志、格式化、运行态、功能开关
 ├── data/        采集器、模型、Room、DataStore、权限、特权层
 ├── domain/      采样调度、引擎、聚合、告警、导出、诊断

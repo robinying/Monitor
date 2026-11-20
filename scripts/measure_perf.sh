@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# T2M Monitor 性能/功耗采样辅助脚本。
+# Robin Monitor 性能/功耗采样辅助脚本。
 # 用法: ./scripts/measure_perf.sh [包名] [采样时长秒数]
 # 需要已连接设备并安装对应 APK；脚本只读采集，不修改设备状态。
 set -euo pipefail
 
-PKG="${1:-com.t2m.monitor.debug}"
+PKG="${1:-com.robin.monitor.debug}"
 DURATION="${2:-600}"
 
 echo "== package: $PKG, duration: ${DURATION}s =="

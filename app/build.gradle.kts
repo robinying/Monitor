@@ -13,11 +13,11 @@ plugins {
 val releaseKeystorePath: String? = providers.gradleProperty("MONITOR_KEYSTORE_PATH").orNull
 
 android {
-    namespace = "com.t2m.monitor"
+    namespace = "com.robin.monitor"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.t2m.monitor"
+        applicationId = "com.robin.monitor"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

@@ -12,9 +12,9 @@
 
 # Hilt / Room / Compose / WorkManager / DataStore 通过 consumer rules 自带保留规则，
 # 这里保留应用入口组件，便于系统与 Hilt 反射查找。
--keep class com.t2m.monitor.MonitorApp { *; }
--keep class com.t2m.monitor.ui.MainActivity { *; }
--keep class com.t2m.monitor.service.MonitorService { *; }
+-keep class com.robin.monitor.MonitorApp { *; }
+-keep class com.robin.monitor.ui.MainActivity { *; }
+-keep class com.robin.monitor.service.MonitorService { *; }
 
 # 保留注解信息（Room/WorkManager 运行时读取）。
 -keepattributes *Annotation*
